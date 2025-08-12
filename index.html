@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NYL Lead Intelligence Platform (Lite)</title>
+  <meta name="description" content="Lead intelligence dashboard without React/Babel (maximum compatibility).">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#f8fafc; }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:0.75rem; box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:.5rem; padding:.625rem 1rem; font-weight:500; }
+    .btn-primary { background:#2563eb; color:#fff; }
+    .btn-primary:hover { background:#1d4ed8; }
+    .btn-green { background:#16a34a; color:#fff; }
+    .btn-green:hover { background:#15803d; }
+    .btn-gray { background:#f3f4f6; color:#374151; }
+    .badge { display:inline-block; padding:.125rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:600; border:1px solid currentColor; }
+    .badge-blue { color:#1d4ed8; background:#eff6ff; border-color:#bfdbfe; }
+    .badge-green { color:#15803d; background:#ecfdf5; border-color:#bbf7d0; }
+    .badge-yellow { color:#a16207; background:#fffbeb; border-color:#fde68a; }
+    .badge-red { color:#b91c1c; background:#fef2f2; border-color:#fecaca; }
+    .badge-gray { color:#374151; background:#f9fafb; border-color:#e5e7eb; }
+  </style>
+</head>
+<body>
+  <div id="app" class="min-h-screen"></div>
+
+  <script type="module">
+    // ------- Config -------
+    const CONFIG = {
+      AGENT_NAME: 'Carnell Lake',
+      AGENT_EMAIL: 'clake02@ft.newyorklife.com',
+      AGENT_LICENSE: 'CA License #4423063',
+      OFFICE_ADDRESS: '888 Newport Center Dr, Newport Beach, CA 92660',
+      DEFAULT_REGION: 'Orange County',
+      APP_NAME: 'NYL Lead Intelligence Platform'
+    };
+
+    const REGIONS = ['Orange County','Los Angeles County','San Diego County','Santa Clara County','Sacramento County','Riverside County'];
+
+    const state = {
+      activeTab: 'dashboard',
+      region: CONFIG.DEFAULT_REGION,
+      opportunities: [],
+      leads: [],
+      notifications: [],
+      apiStatus: { ok:false, eventbrite:false, places:false, sendgrid:false },
+      isScanning: false
+    };
+
+    // ------- Helpers -------
+    const el = (html) => {
+      const t = document.createElement('template');
+      t.innerHTML = html.trim();
+      return t.content.firstElementChild;
+    };
+
+    const notify = (type, message) => {
+      state.notifications.unshift({ id: Date.now()+Math.random(), type, message, time: new Date() });
+      state.notifications = state.notifications.slice(0,5);
+      render();
+    };
+
+    const csvEscape = (value) => {
+      let s = String(value ?? '');
+      // Escape double quotes by doubling them
+      if (s.includes('"')) s = s.replaceAll('"','""');
+      // Quote if contains comma, quote, or newline
+      if (/[",\n]/.test(s)) s = `"${s}"`;
+      return s;
+    };
+
+    const exportCSV = () => {
+      if (!state.opportunities.length) { notify('danger','No opportunities to export.'); return; }
+      const rows = state.opportunities.map(o => ({
+        Name:o.name, Score:o.score, Source:o.source, Location:o.location||'', Priority:o.priority||'',
+        Contact:o.contact?.email||'', Compliance:o.consentStatus||'', Date:(new Date(o.capturedAt)).toLocaleDateString()
+      }));
+      const header = Object.keys(rows[0]).map(csvEscape).join(',');
+      const body = rows.map(r=>Object.values(r).map(csvEscape).join(',')).join('\n');
+      const csv = header + '\n' + body;
+      const blob = new Blob([csv],{type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download=`nyl-leads-${state.region.replaceAll(' ','-')}-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+      URL.revokeObjectURL(url);
+      notify('success',`Exported ${rows.length} rows to CSV.`);
+    };
+
+    const copyText = async (text) => {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+        // Fallback for older browsers/insecure contexts
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position='fixed'; ta.style.left='-9999px';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        const ok = document.execCommand('copy'); document.body.removeChild(ta);
+        return ok;
+      } catch { return false; }
+    };
+
+    const scoreColor = (score) => {
+      if (score >= 80) return 'badge-green';
+      if (score >= 60) return 'badge-blue';
+      if (score >= 40) return 'badge-yellow';
+      return 'badge-gray';
+    };
+
+    const calculateScore = (lead) => {
+      let score = 0;
+      const weights = { life_event_trigger:.35, api_data_quality:.25, compliance_status:.20, behavioral_signals:.15, geographic_relevance:.05 };
+      const triggers = lead.triggers || [];
+      let t = 0;
+      if (triggers.includes('business_formation')) t += 50;
+      if (triggers.includes('property_purchase')) t += 45;
+      if (triggers.includes('family_event')) t += 40;
+      if (triggers.includes('executive_change')) t += 35;
+      score += Math.min(t,100)*weights.life_event_trigger;
+
+      let dq = 0;
+      if (lead.apiSource==='eventbrite') dq = 90; else if (lead.apiSource==='places') dq = 80; else dq = 60;
+      const ageHrs = Math.abs(Date.now() - new Date(lead.capturedAt||Date.now()))/(1000*60*60);
+      if (ageHrs<=1) dq+=10; else if (ageHrs<=24) dq+=5;
+      score += Math.min(dq,100)*weights.api_data_quality;
+
+      let comp = 0;
+      if (lead.consentStatus==='explicit_optin') comp=100;
+      else if (lead.consentStatus==='public_event_signup') comp=80;
+      else if (lead.consentStatus==='business_public_record') comp=60;
+      else comp=20;
+      score += comp*weights.compliance_status;
+
+      const behaviors = lead.behaviors||[];
+      let beh=0;
+      if (behaviors.includes('event_attendance')) beh+=40;
+      if (behaviors.includes('website_visit')) beh+=25;
+      if (behaviors.includes('form_download')) beh+=30;
+      score += Math.min(beh,100)*weights.behavioral_signals;
+
+      let geo=50;
+      const d = lead.distance ?? 15;
+      if (d<=5) geo=100; else if (d<=10) geo=80; else if (d<=25) geo=60;
+      score += geo*weights.geographic_relevance;
+
+      return Math.round(Math.min(score,100));
+    };
+
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch('/.netlify/functions/config');
+        const json = await res.json();
+        state.apiStatus = json;
+      } catch(e) {
+        state.apiStatus = { ok:false, eventbrite:false, places:false, sendgrid:false };
+      }
+      render();
+    };
+
+    const runScan = async () => {
+      state.isScanning = true; render();
+      try {
+        let combined = [];
+        if (state.apiStatus.eventbrite) {
+          const eb = await (await fetch(`/.netlify/functions/eventbrite-search?region=${encodeURIComponent(state.region)}`)).json();
+          combined = combined.concat((eb.items||[]).map(x=>({ ...x, apiSource:'eventbrite', source:'Eventbrite API' })));
+        }
+        if (state.apiStatus.places) {
+          const gp = await (await fetch(`/.netlify/functions/places-search?region=${encodeURIComponent(state.region)}`)).json();
+          combined = combined.concat((gp.items||[]).map(x=>({ ...x, apiSource:'places', source:'Google Places' })));
+        }
+        if (!combined.length) {
+          combined = [
+            { id:`demo_${Date.now()}`, name:'Small Business Growth Summit', apiSource:'eventbrite', source:'Demo Data',
+              location:`${state.region}, CA`, eventDate:new Date(Date.now()+7*24*60*60*1000).toISOString(),
+              triggers:['business_formation','executive_change'], consentStatus:'public_event_signup',
+              behaviors:['event_attendance'], distance:Math.random()*15, capturedAt:new Date().toISOString(),
+              contact:{email:'organizer@businesssummit.com', phone:'(714) 555-0123'},
+              complianceNotes:'Public event registration - attendee list available with consent'
+            },
+            { id:`demo2_${Date.now()}`, name:`${state.region} Professional Services`, apiSource:'places', source:'Demo Data',
+              location:`${state.region}, CA`, triggers:['business_formation'], consentStatus:'business_public_record',
+              behaviors:['website_visit'], distance:Math.random()*12, capturedAt:new Date().toISOString(),
+              contact:{email:'info@profservices.com', phone:'(714) 555-0345'},
+              complianceNotes:'Business listing; outreach should be professional and non-automated.'
+            }
+          ];
+          notify('warn','Running in Demo Mode (connect APIs for live data).');
+        }
+        state.opportunities = combined.map(it => ({ ...it, score: calculateScore(it), priority: it.score>=80?'High': it.score>=60?'Medium':'Low' }))
+                                      .sort((a,b)=>b.score-a.score);
+        notify('success', `Found ${state.opportunities.length} opportunities for ${state.region}.`);
+      } catch (e) {
+        console.error(e);
+        notify('danger','Scan failed. Using demo data.');
+      } finally {
+        state.isScanning = false; render();
+      }
+    };
+
+    // ------- Render -------
+    const renderHeader = () => {
+      const regionOptions = REGIONS.map(r => `<option ${r===state.region?'selected':''}>${r}</option>`).join('');
+      return el(`
+        <header class="bg-white border-b border-gray-200">
+          <div class="max-w-7xl mx-auto p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <h1 class="text-3xl font-bold text-gray-900">${CONFIG.APP_NAME}</h1>
+              <p class="text-gray-600 mt-1">Production-ready lead discovery for ${CONFIG.AGENT_NAME}</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="flex items-center gap-2">
+                <span class="text-gray-600 text-sm">Region</span>
+                <select id="regionSelect" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                  ${regionOptions}
+                </select>
+              </div>
+              <button id="scanBtn" class="btn btn-primary">${state.isScanning?'Scanning…': (state.apiStatus.eventbrite||state.apiStatus.places?'Live API Scan':'Demo Scan')}</button>
+              <button id="exportBtn" class="btn btn-green" ${state.opportunities.length? '':'disabled style="opacity:.5; cursor:not-allowed"'}>Export CSV</button>
+            </div>
+          </div>
+        </header>
+      `);
+    };
+
+    const renderNotifications = () => {
+      if (!state.notifications.length) return el('<div></div>');
+      const items = state.notifications.map(n => {
+        const cls = n.type==='success'?'bg-green-50 border-green-200 text-green-800':
+                    n.type==='warn'?'bg-yellow-50 border-yellow-200 text-yellow-800':
+                    n.type==='danger'?'bg-red-50 border-red-200 text-red-800':'bg-blue-50 border-blue-200 text-blue-800';
+        return `<div class="p-4 rounded-lg border ${cls}"><div class="flex items-center justify-between"><span class="text-sm">${n.message}</span><span class="text-xs opacity-75">${n.time.toLocaleTimeString()}</span></div></div>`;
+      }).join('');
+      return el(`<div class="mb-6 space-y-2">${items}</div>`);
+    };
+
+    const renderStats = () => {
+      const compliant = state.opportunities.filter(o => ['explicit_optin','public_event_signup'].includes(o.consentStatus)).length;
+      const connectedCount = ['eventbrite','places','sendgrid'].filter(k => state.apiStatus[k]).length;
+      return el(`
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-blue-100 text-blue-700">🎯</div><div><p class="text-2xl font-bold">${state.opportunities.length}</p><p class="text-gray-600">Opportunities</p></div></div></div>
+          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-green-100 text-green-700">✅</div><div><p class="text-2xl font-bold">${state.leads.length}</p><p class="text-gray-600">Qualified Leads</p></div></div></div>
+          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-purple-100 text-purple-700">🛡️</div><div><p class="text-2xl font-bold">${compliant}</p><p class="text-gray-600">Compliant</p></div></div></div>
+          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-indigo-100 text-indigo-700">🗄️</div><div><p class="text-2xl font-bold">${connectedCount}/3</p><p class="text-gray-600">APIs Connected</p></div></div></div>
+        </div>
+      `);
+    };
+
+    const renderDashboard = () => {
+      const badge = (kind, text) => `<span class="badge ${kind}">${text}</span>`;
+      const items = state.opportunities.map(o => {
+        const pr = o.priority==='High'?'badge-red': o.priority==='Medium'?'badge-yellow':'badge-green';
+        return `
+          <div class="border border-gray-200 rounded-lg p-6 hover:border-blue-300 transition-colors">
+            <div class="flex justify-between items-start gap-6">
+              <div class="flex-1">
+                <div class="flex items-center gap-3 mb-3">
+                  <span>🏢</span>
+                  <h3 class="text-lg font-semibold text-gray-900">${o.name}</h3>
+                  ${badge(pr, o.priority+' Priority')}
+                  ${badge('badge-blue', o.source)}
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                  <div><p class="text-sm text-gray-500">Contact</p><p class="font-medium text-gray-900">${o.contact?.email || 'N/A'}</p></div>
+                  <div><p class="text-sm text-gray-500">Distance</p><p class="font-medium text-gray-900">${(o.distance??0).toFixed(1)} miles</p></div>
+                  <div><p class="text-sm text-gray-500">Compliance</p><p class="font-medium text-gray-900">${String(o.consentStatus||'').replaceAll('_',' ')}</p></div>
+                  <div><p class="text-sm text-gray-500">Captured</p><p class="font-medium text-gray-900">${new Date(o.capturedAt).toLocaleDateString()}</p></div>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                  ${o.contact?.email ? `<a class="btn btn-primary" href="mailto:${o.contact.email}?subject=Intro — ${CONFIG.AGENT_NAME}, New York Life&body=${encodeURIComponent(outreachTemplate())}">Contact</a>` : `<button class="btn btn-gray" disabled>Contact</button>`}
+                  <button class="btn btn-green" disabled>Schedule</button>
+                  <a target="_blank" rel="noreferrer" class="btn btn-gray" href="https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(o.name)}">Research</a>
+                </div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold px-4 py-2 rounded-lg border ${scoreColor(o.score)}">${o.score}</div>
+                <p class="text-xs text-gray-500 mt-1">AI Score</p>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      return el(`
+        <section>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-900">Lead Opportunities</h2>
+            ${state.apiStatus.eventbrite||state.apiStatus.places ? '<span class="badge badge-green">Live Data Connected</span>' : '<span class="badge badge-yellow">Demo Mode</span>'}
+          </div>
+          ${state.opportunities.length? `<div class="space-y-4">${items}</div>` : `
+            <div class="text-center py-12">
+              <div class="text-5xl text-gray-400 mb-4">🎯</div>
+              <h3 class="text-lg font-semibold text-gray-900 mb-2">No Opportunities Yet</h3>
+              <p class="text-gray-600 mb-4">Click “Scan” to find opportunities in your selected region.</p>
+              <button id="emptyScan" class="btn btn-primary">Find Opportunities</button>
+            </div>`}
+        </section>
+      `);
+    };
+
+    const outreachTemplate = () => `Subject: Quick Intro — ${CONFIG.AGENT_NAME}, New York Life (Local)
+
+Hi there,
+
+I'm ${CONFIG.AGENT_NAME}, a local New York Life agent in ${state.region}. I help families and small businesses with protection, retirement income, and long-term planning.
+
+If it’s helpful, I can share a short, no-pressure overview tailored to your situation or upcoming milestones (new business, home purchase, family changes).
+
+Would you be open to a quick 10–15 minute call next week?
+
+— ${CONFIG.AGENT_NAME}
+${CONFIG.AGENT_LICENSE}
+${CONFIG.OFFICE_ADDRESS}
+${CONFIG.AGENT_EMAIL}
+`;
+
+    const renderSetup = () => {
+      const s = state.apiStatus;
+      const badge = (ok) => ok? '<span class="badge badge-green">Connected</span>' : '<span class="badge badge-red">Not Connected</span>';
+      return el(`
+        <section>
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">API Configuration</h2>
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-6">
+            <h3 class="text-lg font-semibold text-blue-900 mb-2">Quick Start</h3>
+            <ol class="list-decimal list-inside text-sm text-blue-900 space-y-1">
+              <li>In Site Settings → Environment variables, add: <b>EVENTBRITE_TOKEN</b>, <b>GOOGLE_PLACES_KEY</b>, <b>SENDGRID_API_KEY</b>.</li>
+              <li>Trigger a new deploy and refresh this page — badges should read “Connected”.</li>
+            </ol>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold">Eventbrite</h3>${badge(!!s.eventbrite)}</div><p class="text-sm text-gray-600">Env: <code>EVENTBRITE_TOKEN</code></p></div>
+            <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold">Google Places</h3>${badge(!!s.places)}</div><p class="text-sm text-gray-600">Env: <code>GOOGLE_PLACES_KEY</code></p></div>
+            <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold">SendGrid</h3>${badge(!!s.sendgrid)}</div><p class="text-sm text-gray-600">Env: <code>SENDGRID_API_KEY</code></p></div>
+          </div>
+          <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-5">
+            <h3 class="text-lg font-semibold text-yellow-900 mb-2">Compliance Notes</h3>
+            <ul class="text-sm text-yellow-900 space-y-1">
+              <li>• Use public event data only with attendee consent for follow-up.</li>
+              <li>• Public business listings are appropriate for professional outreach; avoid automated bulk emails.</li>
+              <li>• This tool is informational; confirm scripts and templates with NYL compliance.</li>
+            </ul>
+          </div>
+        </section>
+      `);
+    };
+
+    const renderTemplates = () => el(`
+      <section class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold text-gray-900">Email Template (Compliant tone)</h2>
+          <button id="copyTpl" class="btn btn-gray">Copy</button>
+        </div>
+        <pre class="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded border border-gray-200">${outreachTemplate()}</pre>
+        <p class="text-xs text-gray-500">Tip: paste into your email client or CRM and personalize before sending.</p>
+      </section>
+    `);
+
+    const renderTabs = () => {
+      const tabBtn = (id, label) => `<button data-tab="${id}" class="py-4 px-6 border-b-2 font-medium text-sm ${state.activeTab===id?'border-blue-600 text-blue-600':'border-transparent text-gray-600 hover:text-gray-800'}">${label}</button>`;
+      const wrap = el(`<div class="card"><div class="border-b border-gray-200 flex">${tabBtn('dashboard','Dashboard')}${tabBtn('setup','API Setup')}${tabBtn('templates','Templates')}</div><div class="p-6" id="tabPanel"></div></div>`);
+      const panel = wrap.querySelector('#tabPanel');
+      if (state.activeTab==='dashboard') panel.appendChild(renderDashboard());
+      if (state.activeTab==='setup') panel.appendChild(renderSetup());
+      if (state.activeTab==='templates') panel.appendChild(renderTemplates());
+      return wrap;
+    };
+
+    const render = () => {
+      const app = document.getElementById('app');
+      app.innerHTML = '';
+      app.appendChild(renderHeader());
+      const main = el('<main class="max-w-7xl mx-auto p-6"></main>');
+      main.appendChild(renderNotifications());
+      main.appendChild(renderStats());
+      main.appendChild(renderTabs());
+      app.appendChild(main);
+      const footer = el(`<footer class="max-w-7xl mx-auto p-6 text-xs text-gray-500"><div class="bg-gray-50 border border-gray-200 p-4 rounded">© ${new Date().getFullYear()} New York Life Insurance Company. For informational purposes only; not an offer or solicitation. ${CONFIG.AGENT_NAME} — ${CONFIG.AGENT_LICENSE}. Office: ${CONFIG.OFFICE_ADDRESS}. Contact: ${CONFIG.AGENT_EMAIL}.</div></footer>`);
+      app.appendChild(footer);
+
+      // events
+      document.getElementById('regionSelect').onchange = (e)=>{ state.region = e.target.value; };
+      document.getElementById('scanBtn').onclick = runScan;
+      const emptyScan = document.getElementById('emptyScan'); if (emptyScan) emptyScan.onclick = runScan;
+      document.getElementById('exportBtn').onclick = exportCSV;
+      document.querySelectorAll('[data-tab]').forEach(btn => btn.onclick = () => { state.activeTab = btn.dataset.tab; render(); });
+      const copy = document.getElementById('copyTpl'); if (copy) copy.onclick = async () => {
+        const ok = await copyText(outreachTemplate());
+        notify(ok?'success':'danger', ok?'Outreach template copied.':'Copy failed. Please copy manually.');
+      };
+    };
+
+    // Init
+    render();
+    fetchConfig();
+  </script>
+</body>
+</html>
