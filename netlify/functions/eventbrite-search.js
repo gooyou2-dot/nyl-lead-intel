@@ -4,7 +4,11 @@ exports.handler = async (event) => {
     if (!token) return { statusCode: 200, body: JSON.stringify({ ok:false, items:[], note:"Missing EVENTBRITE_TOKEN" }) };
 
     const region = (event.queryStringParameters && event.queryStringParameters.region) || 'Orange County';
-   const url = `https://www.eventbriteapi.com/v3/events/search/?location.address=${encodeURIComponent(region + ', CA')}&location.within=50mi&sort_by=date`;
+   const url =
+  `https://www.eventbriteapi.com/v3/events/search/?` +
+  `location.address=${encodeURIComponent(region + ', CA')}` +
+  `&location.within=50mi` +
+  `&sort_by=date`;
 
 
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
