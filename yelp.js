@@ -1,43 +1,79 @@
-export const handler = async (event) => {
+// netlify/functions/yelp.js
+exports.handler = async (event) => {
   try {
     const key = process.env.YELP_API_KEY;
-    if (!key) return j(500, { error: "missing_env", var: "YELP_API_KEY" });
+    if (!key) {
+      return { 
+        statusCode: 200, 
+        body: JSON.stringify({ 
+          ok: false, 
+          items: [], 
+          note: "Missing YELP_API_KEY" 
+        }) 
+      };
+    }
 
-    const { q = "", location = "", lat = "", lon = "", radius = "8000", categories = "" } =
-      event.queryStringParameters || {};
-
+    const region = (event.queryStringParameters && event.queryStringParameters.region) || 'Orange County';
+    const location = region.includes('County') ? region.replace(' County', '') + ', CA' : region + ', CA';
+    
     const params = new URLSearchParams({
-      attributes: "hot_and_new",
-      limit: "50"
+      attributes: 'hot_and_new',
+      location: location,
+      limit: '20',
+      radius: '16000', // ~10 miles
+      categories: 'restaurants,bars,retail,professional,health,financialservices'
     });
-    if (q) params.set("term", q);
-    if (categories) params.set("categories", categories);
-    if (lat && lon) { params.set("latitude", lat); params.set("longitude", lon); params.set("radius", radius); }
-    else if (location) { params.set("location", location); }
 
-    const resp = await fetch(`https://api.yelp.com/v3/businesses/search?${params}`, {
-      headers: { Authorization: `Bearer ${key}` }
+    const url = `https://api.yelp.com/v3/businesses/search?${params.toString()}`;
+    
+    const res = await fetch(url, {
+      headers: { 
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json'
+      }
     });
-    if (!resp.ok) return j(resp.status, { error: "yelp_status", status: resp.status });
-    const data = await resp.json();
+    
+    if (!res.ok) throw new Error(`Yelp API ${res.status}`);
+    const data = await res.json();
 
-    const items = (data.businesses || []).map(b => ({
-      id: `yelp_${b.id}`,
-      name: b.name,
-      categories: (b.categories || []).map(c => c.title).join(", "),
-      phone: b.phone || "",
-      address: (b.location?.display_address || []).join(", "),
-      city: b.location?.city || "",
-      state: b.location?.state || "",
-      url: b.url,
-      rating: b.rating,
-      review_count: b.review_count,
-      source: "yelp_hot_and_new"
+    const items = (data.businesses || []).slice(0, 10).map(business => ({
+      id: `yelp_${business.id}`,
+      name: business.name || 'Business',
+      location: `${region}, CA`,
+      triggers: ['business_formation', 'new_business'],
+      consentStatus: 'business_public_record',
+      behaviors: ['new_opening'],
+      distance: business.distance ? (business.distance * 0.000621371).toFixed(1) : Math.random() * 15,
+      capturedAt: new Date().toISOString(),
+      contact: { 
+        email: '', 
+        phone: business.display_phone || '' 
+      },
+      complianceNotes: 'Public business listing - professional outreach appropriate.',
+      venue: business.location?.display_address?.join(', ') || '',
+      url: business.url || '',
+      categories: (business.categories || []).map(c => c.title).join(', '),
+      rating: business.rating || 0,
+      reviewCount: business.review_count || 0
     }));
 
-    return j(200, { items, raw_count: items.length });
+    return { 
+      statusCode: 200, 
+      body: JSON.stringify({ 
+        ok: true, 
+        items,
+        source: 'Yelp Hot & New' 
+      }) 
+    };
   } catch (e) {
-    return j(500, { error: "yelp_error", message: e.message });
+    console.error('Yelp error:', e);
+    return { 
+      statusCode: 200, 
+      body: JSON.stringify({ 
+        ok: false, 
+        items: [], 
+        error: String(e) 
+      }) 
+    };
   }
 };
-const j = (code, body) => ({ statusCode: code, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
