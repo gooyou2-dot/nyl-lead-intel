@@ -1,4 +1,3 @@
-// netlify/functions/config.js
 exports.handler = async () => {
   try {
     return {
