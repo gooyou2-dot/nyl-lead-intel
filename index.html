@@ -3,24 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>NYL Lead Intelligence Platform (Lite)</title>
-  <meta name="description" content="Lead intelligence dashboard without React/Babel (maximum compatibility).">
+  <title>NYL Lead Intelligence Platform (Enhanced)</title>
+  <meta name="description" content="Enhanced lead intelligence dashboard with multiple API integrations.">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#f8fafc; }
     .card { background:#fff; border:1px solid #e5e7eb; border-radius:0.75rem; box-shadow: 0 1px 2px rgba(16,24,40,.06); }
-    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:.5rem; padding:.625rem 1rem; font-weight:500; }
+    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:.5rem; padding:.625rem 1rem; font-weight:500; cursor:pointer; transition:all 0.2s; }
     .btn-primary { background:#2563eb; color:#fff; }
     .btn-primary:hover { background:#1d4ed8; }
     .btn-green { background:#16a34a; color:#fff; }
     .btn-green:hover { background:#15803d; }
     .btn-gray { background:#f3f4f6; color:#374151; }
+    .btn-gray:hover { background:#e5e7eb; }
     .badge { display:inline-block; padding:.125rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:600; border:1px solid currentColor; }
     .badge-blue { color:#1d4ed8; background:#eff6ff; border-color:#bfdbfe; }
     .badge-green { color:#15803d; background:#ecfdf5; border-color:#bbf7d0; }
     .badge-yellow { color:#a16207; background:#fffbeb; border-color:#fde68a; }
     .badge-red { color:#b91c1c; background:#fef2f2; border-color:#fecaca; }
     .badge-gray { color:#374151; background:#f9fafb; border-color:#e5e7eb; }
+    .badge-purple { color:#7c3aed; background:#f3e8ff; border-color:#d8b4fe; }
+    .loading { opacity: 0.6; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -45,7 +48,7 @@
       opportunities: [],
       leads: [],
       notifications: [],
-      apiStatus: { ok:false, eventbrite:false, places:false, sendgrid:false },
+      apiStatus: { ok:false, eventbrite:false, places:false, sendgrid:false, ticketmaster:false, seatgeek:false },
       isScanning: false
     };
 
@@ -64,9 +67,7 @@
 
     const csvEscape = (value) => {
       let s = String(value ?? '');
-      // Escape double quotes by doubling them
       if (s.includes('"')) s = s.replaceAll('"','""');
-      // Quote if contains comma, quote, or newline
       if (/[",\n]/.test(s)) s = `"${s}"`;
       return s;
     };
@@ -75,7 +76,8 @@
       if (!state.opportunities.length) { notify('danger','No opportunities to export.'); return; }
       const rows = state.opportunities.map(o => ({
         Name:o.name, Score:o.score, Source:o.source, Location:o.location||'', Priority:o.priority||'',
-        Contact:o.contact?.email||'', Compliance:o.consentStatus||'', Date:(new Date(o.capturedAt)).toLocaleDateString()
+        Contact:o.contact?.email||'', Compliance:o.consentStatus||'', Date:(new Date(o.capturedAt)).toLocaleDateString(),
+        Venue:o.venue||'', URL:o.url||''
       }));
       const header = Object.keys(rows[0]).map(csvEscape).join(',');
       const body = rows.map(r=>Object.values(r).map(csvEscape).join(',')).join('\n');
@@ -93,7 +95,6 @@
           await navigator.clipboard.writeText(text);
           return true;
         }
-        // Fallback for older browsers/insecure contexts
         const ta = document.createElement('textarea');
         ta.value = text; ta.style.position='fixed'; ta.style.left='-9999px';
         document.body.appendChild(ta); ta.focus(); ta.select();
@@ -118,10 +119,15 @@
       if (triggers.includes('property_purchase')) t += 45;
       if (triggers.includes('family_event')) t += 40;
       if (triggers.includes('executive_change')) t += 35;
+      if (triggers.includes('event_attendance')) t += 30;
       score += Math.min(t,100)*weights.life_event_trigger;
 
       let dq = 0;
-      if (lead.apiSource==='eventbrite') dq = 90; else if (lead.apiSource==='places') dq = 80; else dq = 60;
+      if (lead.apiSource==='eventbrite') dq = 90; 
+      else if (lead.apiSource==='places') dq = 80; 
+      else if (lead.apiSource==='ticketmaster') dq = 85;
+      else if (lead.apiSource==='seatgeek') dq = 85;
+      else dq = 60;
       const ageHrs = Math.abs(Date.now() - new Date(lead.capturedAt||Date.now()))/(1000*60*60);
       if (ageHrs<=1) dq+=10; else if (ageHrs<=24) dq+=5;
       score += Math.min(dq,100)*weights.api_data_quality;
@@ -154,7 +160,7 @@
         const json = await res.json();
         state.apiStatus = json;
       } catch(e) {
-        state.apiStatus = { ok:false, eventbrite:false, places:false, sendgrid:false };
+        state.apiStatus = { ok:false, eventbrite:false, places:false, sendgrid:false, ticketmaster:false, seatgeek:false };
       }
       render();
     };
@@ -163,14 +169,64 @@
       state.isScanning = true; render();
       try {
         let combined = [];
+        let sourceCount = 0;
+
+        // Enhanced API calls with all sources
+        const apiCalls = [];
+        
         if (state.apiStatus.eventbrite) {
-          const eb = await (await fetch(`/.netlify/functions/eventbrite-search?region=${encodeURIComponent(state.region)}`)).json();
-          combined = combined.concat((eb.items||[]).map(x=>({ ...x, apiSource:'eventbrite', source:'Eventbrite API' })));
+          apiCalls.push(
+            fetch(`/.netlify/functions/eventbrite-search?region=${encodeURIComponent(state.region)}`)
+              .then(res => res.json())
+              .then(data => ({ source: 'Eventbrite API', items: data.items || [], apiSource: 'eventbrite' }))
+              .catch(() => ({ source: 'Eventbrite API', items: [], apiSource: 'eventbrite' }))
+          );
+          sourceCount++;
         }
+
         if (state.apiStatus.places) {
-          const gp = await (await fetch(`/.netlify/functions/places-search?region=${encodeURIComponent(state.region)}`)).json();
-          combined = combined.concat((gp.items||[]).map(x=>({ ...x, apiSource:'places', source:'Google Places' })));
+          apiCalls.push(
+            fetch(`/.netlify/functions/places-search?region=${encodeURIComponent(state.region)}`)
+              .then(res => res.json())
+              .then(data => ({ source: 'Google Places', items: data.items || [], apiSource: 'places' }))
+              .catch(() => ({ source: 'Google Places', items: [], apiSource: 'places' }))
+          );
+          sourceCount++;
         }
+
+        if (state.apiStatus.ticketmaster) {
+          apiCalls.push(
+            fetch(`/.netlify/functions/ticketmaster?region=${encodeURIComponent(state.region)}`)
+              .then(res => res.json())
+              .then(data => ({ source: 'Ticketmaster API', items: data.items || [], apiSource: 'ticketmaster' }))
+              .catch(() => ({ source: 'Ticketmaster API', items: [], apiSource: 'ticketmaster' }))
+          );
+          sourceCount++;
+        }
+
+        if (state.apiStatus.seatgeek) {
+          apiCalls.push(
+            fetch(`/.netlify/functions/seatgeek?region=${encodeURIComponent(state.region)}`)
+              .then(res => res.json())
+              .then(data => ({ source: 'SeatGeek API', items: data.items || [], apiSource: 'seatgeek' }))
+              .catch(() => ({ source: 'SeatGeek API', items: [], apiSource: 'seatgeek' }))
+          );
+          sourceCount++;
+        }
+
+        const results = await Promise.all(apiCalls);
+        
+        results.forEach(result => {
+          if (result.items && result.items.length > 0) {
+            combined = combined.concat(result.items.map(x => ({ 
+              ...x, 
+              apiSource: result.apiSource,
+              source: result.source 
+            })));
+          }
+        });
+
+        // Fallback demo data if no APIs connected
         if (!combined.length) {
           combined = [
             { id:`demo_${Date.now()}`, name:'Small Business Growth Summit', apiSource:'eventbrite', source:'Demo Data',
@@ -178,37 +234,53 @@
               triggers:['business_formation','executive_change'], consentStatus:'public_event_signup',
               behaviors:['event_attendance'], distance:Math.random()*15, capturedAt:new Date().toISOString(),
               contact:{email:'organizer@businesssummit.com', phone:'(714) 555-0123'},
-              complianceNotes:'Public event registration - attendee list available with consent'
+              complianceNotes:'Public event registration - attendee list available with consent',
+              venue:'Convention Center'
             },
             { id:`demo2_${Date.now()}`, name:`${state.region} Professional Services`, apiSource:'places', source:'Demo Data',
               location:`${state.region}, CA`, triggers:['business_formation'], consentStatus:'business_public_record',
               behaviors:['website_visit'], distance:Math.random()*12, capturedAt:new Date().toISOString(),
               contact:{email:'info@profservices.com', phone:'(714) 555-0345'},
-              complianceNotes:'Business listing; outreach should be professional and non-automated.'
+              complianceNotes:'Business listing; outreach should be professional and non-automated.',
+              venue:'Business District'
+            },
+            { id:`demo3_${Date.now()}`, name:'Orange County Concert Series', apiSource:'ticketmaster', source:'Demo Data',
+              location:`${state.region}, CA`, eventDate:new Date(Date.now()+14*24*60*60*1000).toISOString(),
+              triggers:['event_attendance'], consentStatus:'public_event_signup',
+              behaviors:['event_attendance'], distance:Math.random()*10, capturedAt:new Date().toISOString(),
+              contact:{email:'tickets@concerts.com', phone:'(714) 555-0789'},
+              complianceNotes:'Public event data - ensure attendee consent for follow-up.',
+              venue:'Amphitheater'
             }
           ];
-          notify('warn','Running in Demo Mode (connect APIs for live data).');
+          notify('warn',`Running in Demo Mode (${sourceCount} APIs available - add API keys for live data).`);
         }
-        state.opportunities = combined.map(it => ({ ...it, score: calculateScore(it), priority: it.score>=80?'High': it.score>=60?'Medium':'Low' }))
-                                      .sort((a,b)=>b.score-a.score);
-        notify('success', `Found ${state.opportunities.length} opportunities for ${state.region}.`);
+
+        state.opportunities = combined.map(it => ({ 
+          ...it, 
+          score: calculateScore(it), 
+          priority: it.score>=80?'High': it.score>=60?'Medium':'Low' 
+        })).sort((a,b)=>b.score-a.score);
+
+        notify('success', `Found ${state.opportunities.length} opportunities from ${sourceCount} connected APIs in ${state.region}.`);
       } catch (e) {
         console.error(e);
-        notify('danger','Scan failed. Using demo data.');
+        notify('danger','Scan failed. Check API connections and try again.');
       } finally {
         state.isScanning = false; render();
       }
     };
 
-    // ------- Render -------
+    // ------- Render Functions -------
     const renderHeader = () => {
       const regionOptions = REGIONS.map(r => `<option ${r===state.region?'selected':''}>${r}</option>`).join('');
+      const connectedCount = Object.keys(state.apiStatus).filter(k => k !== 'ok' && state.apiStatus[k]).length;
       return el(`
         <header class="bg-white border-b border-gray-200">
           <div class="max-w-7xl mx-auto p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <h1 class="text-3xl font-bold text-gray-900">${CONFIG.APP_NAME}</h1>
-              <p class="text-gray-600 mt-1">Production-ready lead discovery for ${CONFIG.AGENT_NAME}</p>
+              <p class="text-gray-600 mt-1">Enhanced lead discovery for ${CONFIG.AGENT_NAME} • ${connectedCount}/5 APIs Connected</p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
               <div class="flex items-center gap-2">
@@ -217,7 +289,7 @@
                   ${regionOptions}
                 </select>
               </div>
-              <button id="scanBtn" class="btn btn-primary">${state.isScanning?'Scanning…': (state.apiStatus.eventbrite||state.apiStatus.places?'Live API Scan':'Demo Scan')}</button>
+              <button id="scanBtn" class="btn btn-primary ${state.isScanning?'loading':''}">${state.isScanning?'Scanning…': connectedCount > 0 ? `Scan ${connectedCount} APIs` : 'Demo Scan'}</button>
               <button id="exportBtn" class="btn btn-green" ${state.opportunities.length? '':'disabled style="opacity:.5; cursor:not-allowed"'}>Export CSV</button>
             </div>
           </div>
@@ -238,13 +310,14 @@
 
     const renderStats = () => {
       const compliant = state.opportunities.filter(o => ['explicit_optin','public_event_signup'].includes(o.consentStatus)).length;
-      const connectedCount = ['eventbrite','places','sendgrid'].filter(k => state.apiStatus[k]).length;
+      const connectedCount = Object.keys(state.apiStatus).filter(k => k !== 'ok' && state.apiStatus[k]).length;
+      const highPriority = state.opportunities.filter(o => o.priority === 'High').length;
       return el(`
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-blue-100 text-blue-700">🎯</div><div><p class="text-2xl font-bold">${state.opportunities.length}</p><p class="text-gray-600">Opportunities</p></div></div></div>
-          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-green-100 text-green-700">✅</div><div><p class="text-2xl font-bold">${state.leads.length}</p><p class="text-gray-600">Qualified Leads</p></div></div></div>
-          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-purple-100 text-purple-700">🛡️</div><div><p class="text-2xl font-bold">${compliant}</p><p class="text-gray-600">Compliant</p></div></div></div>
-          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-indigo-100 text-indigo-700">🗄️</div><div><p class="text-2xl font-bold">${connectedCount}/3</p><p class="text-gray-600">APIs Connected</p></div></div></div>
+          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-blue-100 text-blue-700">🎯</div><div><p class="text-2xl font-bold">${state.opportunities.length}</p><p class="text-gray-600">Total Opportunities</p></div></div></div>
+          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-red-100 text-red-700">🔥</div><div><p class="text-2xl font-bold">${highPriority}</p><p class="text-gray-600">High Priority</p></div></div></div>
+          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-green-100 text-green-700">✅</div><div><p class="text-2xl font-bold">${compliant}</p><p class="text-gray-600">Compliant</p></div></div></div>
+          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-indigo-100 text-indigo-700">🗄️</div><div><p class="text-2xl font-bold">${connectedCount}/5</p><p class="text-gray-600">APIs Connected</p></div></div></div>
         </div>
       `);
     };
@@ -253,6 +326,10 @@
       const badge = (kind, text) => `<span class="badge ${kind}">${text}</span>`;
       const items = state.opportunities.map(o => {
         const pr = o.priority==='High'?'badge-red': o.priority==='Medium'?'badge-yellow':'badge-green';
+        const sourceBadge = o.source?.includes('Ticketmaster') ? 'badge-purple' :
+                           o.source?.includes('SeatGeek') ? 'badge-blue' :
+                           o.source?.includes('Eventbrite') ? 'badge-green' :
+                           o.source?.includes('Google') ? 'badge-yellow' : 'badge-gray';
         return `
           <div class="border border-gray-200 rounded-lg p-6 hover:border-blue-300 transition-colors">
             <div class="flex justify-between items-start gap-6">
@@ -261,17 +338,17 @@
                   <span>🏢</span>
                   <h3 class="text-lg font-semibold text-gray-900">${o.name}</h3>
                   ${badge(pr, o.priority+' Priority')}
-                  ${badge('badge-blue', o.source)}
+                  ${badge(sourceBadge, o.source)}
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                   <div><p class="text-sm text-gray-500">Contact</p><p class="font-medium text-gray-900">${o.contact?.email || 'N/A'}</p></div>
                   <div><p class="text-sm text-gray-500">Distance</p><p class="font-medium text-gray-900">${(o.distance??0).toFixed(1)} miles</p></div>
-                  <div><p class="text-sm text-gray-500">Compliance</p><p class="font-medium text-gray-900">${String(o.consentStatus||'').replaceAll('_',' ')}</p></div>
+                  <div><p class="text-sm text-gray-500">Venue</p><p class="font-medium text-gray-900">${o.venue || 'N/A'}</p></div>
                   <div><p class="text-sm text-gray-500">Captured</p><p class="font-medium text-gray-900">${new Date(o.capturedAt).toLocaleDateString()}</p></div>
                 </div>
                 <div class="flex flex-wrap gap-3">
                   ${o.contact?.email ? `<a class="btn btn-primary" href="mailto:${o.contact.email}?subject=Intro — ${CONFIG.AGENT_NAME}, New York Life&body=${encodeURIComponent(outreachTemplate())}">Contact</a>` : `<button class="btn btn-gray" disabled>Contact</button>`}
-                  <button class="btn btn-green" disabled>Schedule</button>
+                  ${o.url ? `<a class="btn btn-green" href="${o.url}" target="_blank" rel="noopener">View Event</a>` : `<button class="btn btn-gray" disabled>View Event</button>`}
                   <a target="_blank" rel="noreferrer" class="btn btn-gray" href="https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(o.name)}">Research</a>
                 </div>
               </div>
@@ -283,17 +360,19 @@
           </div>
         `;
       }).join('');
+      
+      const connectedCount = Object.keys(state.apiStatus).filter(k => k !== 'ok' && state.apiStatus[k]).length;
       return el(`
         <section>
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-semibold text-gray-900">Lead Opportunities</h2>
-            ${state.apiStatus.eventbrite||state.apiStatus.places ? '<span class="badge badge-green">Live Data Connected</span>' : '<span class="badge badge-yellow">Demo Mode</span>'}
+            ${connectedCount > 0 ? `<span class="badge badge-green">${connectedCount} APIs Connected</span>` : '<span class="badge badge-yellow">Demo Mode</span>'}
           </div>
           ${state.opportunities.length? `<div class="space-y-4">${items}</div>` : `
             <div class="text-center py-12">
               <div class="text-5xl text-gray-400 mb-4">🎯</div>
               <h3 class="text-lg font-semibold text-gray-900 mb-2">No Opportunities Yet</h3>
-              <p class="text-gray-600 mb-4">Click “Scan” to find opportunities in your selected region.</p>
+              <p class="text-gray-600 mb-4">Click "Scan" to find opportunities in your selected region.</p>
               <button id="emptyScan" class="btn btn-primary">Find Opportunities</button>
             </div>`}
         </section>
@@ -306,7 +385,7 @@ Hi there,
 
 I'm ${CONFIG.AGENT_NAME}, a local New York Life agent in ${state.region}. I help families and small businesses with protection, retirement income, and long-term planning.
 
-If it’s helpful, I can share a short, no-pressure overview tailored to your situation or upcoming milestones (new business, home purchase, family changes).
+If it's helpful, I can share a short, no-pressure overview tailored to your situation or upcoming milestones (new business, home purchase, family changes).
 
 Would you be open to a quick 10–15 minute call next week?
 
@@ -325,21 +404,27 @@ ${CONFIG.AGENT_EMAIL}
           <div class="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-6">
             <h3 class="text-lg font-semibold text-blue-900 mb-2">Quick Start</h3>
             <ol class="list-decimal list-inside text-sm text-blue-900 space-y-1">
-              <li>In Site Settings → Environment variables, add: <b>EVENTBRITE_TOKEN</b>, <b>GOOGLE_PLACES_KEY</b>, <b>SENDGRID_API_KEY</b>.</li>
-              <li>Trigger a new deploy and refresh this page — badges should read “Connected”.</li>
+              <li>In Netlify Site Settings → Environment variables, add: <b>EVENTBRITE_TOKEN</b>, <b>GOOGLE_PLACES_KEY</b>, <b>SENDGRID_API_KEY</b>, <b>TICKETMASTER_API_KEY</b>, <b>SEATGEEK_CLIENT_ID</b>.</li>
+              <li>Trigger a new deploy and refresh this page — badges should read "Connected".</li>
+              <li>Get API keys: <a href="https://www.eventbrite.com/platform/api" target="_blank" class="underline">Eventbrite</a>, <a href="https://developers.google.com/maps/documentation/places/web-service" target="_blank" class="underline">Google Places</a>, <a href="https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/" target="_blank" class="underline">Ticketmaster</a>, <a href="https://platform.seatgeek.com/" target="_blank" class="underline">SeatGeek</a></li>
             </ol>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold">Eventbrite</h3>${badge(!!s.eventbrite)}</div><p class="text-sm text-gray-600">Env: <code>EVENTBRITE_TOKEN</code></p></div>
             <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold">Google Places</h3>${badge(!!s.places)}</div><p class="text-sm text-gray-600">Env: <code>GOOGLE_PLACES_KEY</code></p></div>
             <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold">SendGrid</h3>${badge(!!s.sendgrid)}</div><p class="text-sm text-gray-600">Env: <code>SENDGRID_API_KEY</code></p></div>
           </div>
-          <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-5">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-purple-700">Ticketmaster</h3>${badge(!!s.ticketmaster)}</div><p class="text-sm text-gray-600">Env: <code>TICKETMASTER_API_KEY</code></p><p class="text-xs text-gray-500 mt-1">Events & concerts nationwide</p></div>
+            <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-blue-700">SeatGeek</h3>${badge(!!s.seatgeek)}</div><p class="text-sm text-gray-600">Env: <code>SEATGEEK_CLIENT_ID</code></p><p class="text-xs text-gray-500 mt-1">Sports & entertainment events</p></div>
+          </div>
+          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-5">
             <h3 class="text-lg font-semibold text-yellow-900 mb-2">Compliance Notes</h3>
             <ul class="text-sm text-yellow-900 space-y-1">
               <li>• Use public event data only with attendee consent for follow-up.</li>
               <li>• Public business listings are appropriate for professional outreach; avoid automated bulk emails.</li>
               <li>• This tool is informational; confirm scripts and templates with NYL compliance.</li>
+              <li>• Event data should be used to identify networking opportunities, not for direct marketing without consent.</li>
             </ul>
           </div>
         </section>
