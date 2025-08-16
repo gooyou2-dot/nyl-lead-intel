@@ -22,3 +22,14 @@
   from = "/api/seatgeek"
   to = "/.netlify/functions/seatgeek"
   status = 200
+
+[[redirects]]
+  from = "/api/yelp"
+  to = "/.netlify/functions/yelp"
+  status = 200
+
+[[redirects]]
+  from = "/api/la-permits"
+  to = "/.netlify/functions/la-permits"
+  status = 200
+
