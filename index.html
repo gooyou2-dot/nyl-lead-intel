@@ -9,12 +9,12 @@
   <style>
     body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#f8fafc; }
     .card { background:#fff; border:1px solid #e5e7eb; border-radius:0.75rem; box-shadow: 0 1px 2px rgba(16,24,40,.06); }
-    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:.5rem; padding:.625rem 1rem; font-weight:500; cursor:pointer; transition:all 0.2s; }
+    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:.5rem; padding:.625rem 1rem; font-weight:500; cursor:pointer; transition:all 0.2s; white-space: nowrap; }
     .btn-primary { background:#2563eb; color:#fff; }
     .btn-primary:hover { background:#1d4ed8; }
     .btn-green { background:#16a34a; color:#fff; }
     .btn-green:hover { background:#15803d; }
-    .btn-gray { background:#f3f4f6; color:#374151; }
+    .btn-gray { background:#f3f4f6; color:#374151; border: 1px solid #d1d5db; }
     .btn-gray:hover { background:#e5e7eb; }
     .badge { display:inline-block; padding:.125rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:600; border:1px solid currentColor; }
     .badge-blue { color:#1d4ed8; background:#eff6ff; border-color:#bfdbfe; }
@@ -26,6 +26,7 @@
     .badge-orange { color:#ea580c; background:#fff7ed; border-color:#fed7aa; }
     .badge-teal { color:#0f766e; background:#f0fdfa; border-color:#99f6e4; }
     .loading { opacity: 0.6; pointer-events: none; }
+    select { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
   </style>
 </head>
 <body>
@@ -44,14 +45,32 @@
 
     const REGIONS = ['Orange County','Los Angeles County','San Diego County','Santa Clara County','Sacramento County','Riverside County'];
 
-    const state = {
+    const API_SOURCES = [
+      { id: 'eventbrite',  name: 'Eventbrite API',   endpoint: 'eventbrite-search',  label: 'Eventbrite' },
+      { id: 'places',      name: 'Google Places',    endpoint: 'places-search',      label: 'Google Places' },
+      { id: 'ticketmaster',name: 'Ticketmaster API', endpoint: 'ticketmaster',         label: 'Ticketmaster' },
+      { id: 'seatgeek',    name: 'SeatGeek API',     endpoint: 'seatgeek',           label: 'SeatGeek' },
+      { id: 'yelp',        name: 'Yelp Hot & New',   endpoint: 'yelp',               label: 'Yelp' },
+      { id: 'lapermits',   name: 'LA City Permits',  endpoint: 'la-permits',         label: 'LA Permits' }
+    ];
+
+    // ------- State Management -------
+    const defaultState = {
       activeTab: 'dashboard',
-      region: CONFIG.DEFAULT_REGION,
-      opportunities: [],
-      leads: [],
+      region: localStorage.getItem('nyl-region') || CONFIG.DEFAULT_REGION,
+      opportunities: JSON.parse(localStorage.getItem('nyl-opportunities')) || [],
       notifications: [],
-      apiStatus: { ok:false, eventbrite:false, places:false, sendgrid:false, ticketmaster:false, seatgeek:false, yelp:false, lapermits:false },
-      isScanning: false
+      apiStatus: { ok: false, sendgrid: false },
+      isScanning: false,
+      filters: { source: 'all', priority: 'all', sortBy: 'score_desc' }
+    };
+    API_SOURCES.forEach(api => defaultState.apiStatus[api.id] = false);
+
+    let state = { ...defaultState };
+
+    const saveState = () => {
+      localStorage.setItem('nyl-region', state.region);
+      localStorage.setItem('nyl-opportunities', JSON.stringify(state.opportunities));
     };
 
     // ------- Helpers -------
@@ -62,253 +81,157 @@
     };
 
     const notify = (type, message) => {
-      state.notifications.unshift({ id: Date.now()+Math.random(), type, message, time: new Date() });
-      state.notifications = state.notifications.slice(0,5);
+      state.notifications.unshift({ id: Date.now() + Math.random(), type, message, time: new Date() });
+      state.notifications = state.notifications.slice(0, 5);
       render();
     };
 
     const csvEscape = (value) => {
       let s = String(value ?? '');
-      if (s.includes('"')) s = s.replaceAll('"','""');
+      if (s.includes('"')) s = s.replaceAll('"', '""');
       if (/[",\n]/.test(s)) s = `"${s}"`;
       return s;
     };
 
     const exportCSV = () => {
-      if (!state.opportunities.length) { notify('danger','No opportunities to export.'); return; }
+      if (!state.opportunities.length) { notify('danger', 'No opportunities to export.'); return; }
       const rows = state.opportunities.map(o => ({
-        Name:o.name, Score:o.score, Source:o.source, Location:o.location||'', Priority:o.priority||'',
-        Contact:o.contact?.email||'', Phone:o.contact?.phone||'', Compliance:o.consentStatus||'', 
-        Date:(new Date(o.capturedAt)).toLocaleDateString(), Venue:o.venue||'', URL:o.url||'',
-        Categories:o.categories||'', Rating:o.rating||'', Reviews:o.reviewCount||''
+        Name: o.name, Score: o.score, Source: o.source, Location: o.location || '', Priority: o.priority || '',
+        Contact: o.contact?.email || '', Phone: o.contact?.phone || '', Compliance: o.consentStatus || '',
+        Date: (new Date(o.capturedAt)).toLocaleDateString(), Venue: o.venue || '', URL: o.url || '',
+        Categories: o.categories || '', Rating: o.rating || '', Reviews: o.reviewCount || ''
       }));
       const header = Object.keys(rows[0]).map(csvEscape).join(',');
-      const body = rows.map(r=>Object.values(r).map(csvEscape).join(',')).join('\n');
+      const body = rows.map(r => Object.values(r).map(csvEscape).join(',')).join('\n');
       const csv = header + '\n' + body;
-      const blob = new Blob([csv],{type:'text/csv'});
+      const blob = new Blob([csv], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href=url; a.download=`nyl-leads-${state.region.replaceAll(' ','-')}-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+      const a = document.createElement('a'); a.href = url; a.download = `nyl-leads-${state.region.replaceAll(' ', '-')}-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
       URL.revokeObjectURL(url);
-      notify('success',`Exported ${rows.length} rows to CSV.`);
+      notify('success', `Exported ${rows.length} rows to CSV.`);
     };
-
-    const copyText = async (text) => {
-      try {
-        if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(text);
-          return true;
-        }
-        const ta = document.createElement('textarea');
-        ta.value = text; ta.style.position='fixed'; ta.style.left='-9999px';
-        document.body.appendChild(ta); ta.focus(); ta.select();
-        const ok = document.execCommand('copy'); document.body.removeChild(ta);
-        return ok;
-      } catch { return false; }
-    };
-
-    const scoreColor = (score) => {
-      if (score >= 80) return 'badge-green';
-      if (score >= 60) return 'badge-blue';
-      if (score >= 40) return 'badge-yellow';
-      return 'badge-gray';
-    };
-
+    
+    // ------- Scoring Logic -------
     const calculateScore = (lead) => {
       let score = 0;
       const weights = { life_event_trigger:.35, api_data_quality:.25, compliance_status:.20, behavioral_signals:.15, geographic_relevance:.05 };
       const triggers = lead.triggers || [];
       let t = 0;
-      if (triggers.includes('business_formation')) t += 50;
-      if (triggers.includes('new_business')) t += 45;
-      if (triggers.includes('property_development')) t += 40;
-      if (triggers.includes('property_purchase')) t += 45;
-      if (triggers.includes('family_event')) t += 40;
-      if (triggers.includes('executive_change')) t += 35;
+      if (triggers.includes('business_formation')) t += 50; if (triggers.includes('new_business')) t += 45;
+      if (triggers.includes('property_development')) t += 40; if (triggers.includes('property_purchase')) t += 45;
+      if (triggers.includes('family_event')) t += 40; if (triggers.includes('executive_change')) t += 35;
       if (triggers.includes('event_attendance')) t += 30;
-      score += Math.min(t,100)*weights.life_event_trigger;
-
-      let dq = 0;
-      if (lead.apiSource==='eventbrite') dq = 90; 
-      else if (lead.apiSource==='places') dq = 80; 
-      else if (lead.apiSource==='ticketmaster') dq = 85;
-      else if (lead.apiSource==='seatgeek') dq = 85;
-      else if (lead.apiSource==='yelp') dq = 88; // High quality business data
-      else if (lead.apiSource==='lapermits') dq = 82; // Government records
-      else dq = 60;
-      const ageHrs = Math.abs(Date.now() - new Date(lead.capturedAt||Date.now()))/(1000*60*60);
-      if (ageHrs<=1) dq+=10; else if (ageHrs<=24) dq+=5;
-      score += Math.min(dq,100)*weights.api_data_quality;
-
-      let comp = 0;
-      if (lead.consentStatus==='explicit_optin') comp=100;
-      else if (lead.consentStatus==='public_event_signup') comp=80;
-      else if (lead.consentStatus==='business_public_record') comp=75;
-      else comp=20;
-      score += comp*weights.compliance_status;
-
-      const behaviors = lead.behaviors||[];
+      score += Math.min(t,100) * weights.life_event_trigger;
+      let dq = { eventbrite: 90, places: 80, ticketmaster: 85, seatgeek: 85, yelp: 88, lapermits: 82 }[lead.apiSource] || 60;
+      const ageHrs = Math.abs(Date.now() - new Date(lead.capturedAt||Date.now())) / (3600000);
+      if (ageHrs <= 1) dq += 10; else if (ageHrs <= 24) dq += 5;
+      score += Math.min(dq,100) * weights.api_data_quality;
+      let comp = { explicit_optin:100, public_event_signup:80, business_public_record:75 }[lead.consentStatus] || 20;
+      score += comp * weights.compliance_status;
+      const behaviors = lead.behaviors || [];
       let beh=0;
-      if (behaviors.includes('event_attendance')) beh+=40;
-      if (behaviors.includes('new_opening')) beh+=45;
-      if (behaviors.includes('construction_permit')) beh+=35;
-      if (behaviors.includes('website_visit')) beh+=25;
-      if (behaviors.includes('form_download')) beh+=30;
-      score += Math.min(beh,100)*weights.behavioral_signals;
-
+      if (behaviors.includes('event_attendance')) beh += 40; if (behaviors.includes('new_opening')) beh += 45;
+      if (behaviors.includes('construction_permit')) beh += 35; if (behaviors.includes('website_visit')) beh += 25;
+      if (behaviors.includes('form_download')) beh += 30;
+      score += Math.min(beh,100) * weights.behavioral_signals;
       let geo=50;
       const d = lead.distance ?? 15;
-      if (d<=5) geo=100; else if (d<=10) geo=80; else if (d<=25) geo=60;
-      score += geo*weights.geographic_relevance;
-
+      if (d <= 5) geo=100; else if (d <= 10) geo=80; else if (d <= 25) geo=60;
+      score += geo * weights.geographic_relevance;
       return Math.round(Math.min(score,100));
     };
 
+    // ------- API Logic -------
     const fetchConfig = async () => {
       try {
         const res = await fetch('/.netlify/functions/config');
-        const json = await res.json();
-        state.apiStatus = json;
-      } catch(e) {
-        state.apiStatus = { ok:false, eventbrite:false, places:false, sendgrid:false, ticketmaster:false, seatgeek:false, yelp:false, lapermits:false };
+        if (!res.ok) throw new Error('Network response was not ok');
+        state.apiStatus = await res.json();
+      } catch (e) {
+        console.error("Failed to fetch API config:", e);
+        notify('danger', 'Could not fetch API configuration.');
       }
       render();
     };
 
     const runScan = async () => {
-      state.isScanning = true; render();
-      try {
-        let combined = [];
-        let sourceCount = 0;
+      state.isScanning = true;
+      state.opportunities = [];
+      render();
 
-        // Enhanced API calls with all sources
-        const apiCalls = [];
-        
-        if (state.apiStatus.eventbrite) {
-          apiCalls.push(
-            fetch(`/.netlify/functions/eventbrite-search?region=${encodeURIComponent(state.region)}`)
-              .then(res => res.json())
-              .then(data => ({ source: 'Eventbrite API', items: data.items || [], apiSource: 'eventbrite' }))
-              .catch(() => ({ source: 'Eventbrite API', items: [], apiSource: 'eventbrite' }))
-          );
-          sourceCount++;
-        }
-
-        if (state.apiStatus.places) {
-          apiCalls.push(
-            fetch(`/.netlify/functions/places-search?region=${encodeURIComponent(state.region)}`)
-              .then(res => res.json())
-              .then(data => ({ source: 'Google Places', items: data.items || [], apiSource: 'places' }))
-              .catch(() => ({ source: 'Google Places', items: [], apiSource: 'places' }))
-          );
-          sourceCount++;
-        }
-
-        if (state.apiStatus.ticketmaster) {
-          apiCalls.push(
-            fetch(`/.netlify/functions/ticketmaster?region=${encodeURIComponent(state.region)}`)
-              .then(res => res.json())
-              .then(data => ({ source: 'Ticketmaster API', items: data.items || [], apiSource: 'ticketmaster' }))
-              .catch(() => ({ source: 'Ticketmaster API', items: [], apiSource: 'ticketmaster' }))
-          );
-          sourceCount++;
-        }
-
-        if (state.apiStatus.seatgeek) {
-          apiCalls.push(
-            fetch(`/.netlify/functions/seatgeek?region=${encodeURIComponent(state.region)}`)
-              .then(res => res.json())
-              .then(data => ({ source: 'SeatGeek API', items: data.items || [], apiSource: 'seatgeek' }))
-              .catch(() => ({ source: 'SeatGeek API', items: [], apiSource: 'seatgeek' }))
-          );
-          sourceCount++;
-        }
-
-        if (state.apiStatus.yelp) {
-          apiCalls.push(
-            fetch(`/.netlify/functions/yelp?region=${encodeURIComponent(state.region)}`)
-              .then(res => res.json())
-              .then(data => ({ source: 'Yelp Hot & New', items: data.items || [], apiSource: 'yelp' }))
-              .catch(() => ({ source: 'Yelp Hot & New', items: [], apiSource: 'yelp' }))
-          );
-          sourceCount++;
-        }
-
-        if (state.apiStatus.lapermits) {
-          apiCalls.push(
-            fetch(`/.netlify/functions/la-permits?region=${encodeURIComponent(state.region)}`)
-              .then(res => res.json())
-              .then(data => ({ source: 'LA City Permits', items: data.items || [], apiSource: 'lapermits' }))
-              .catch(() => ({ source: 'LA City Permits', items: [], apiSource: 'lapermits' }))
-          );
-          sourceCount++;
-        }
-
-        const results = await Promise.all(apiCalls);
-        
-        results.forEach(result => {
-          if (result.items && result.items.length > 0) {
-            combined = combined.concat(result.items.map(x => ({ 
-              ...x, 
-              apiSource: result.apiSource,
-              source: result.source 
-            })));
-          }
-        });
-
-        // Fallback demo data if no APIs connected
-        if (!combined.length) {
-          combined = [
-            { id:`demo_${Date.now()}`, name:'Small Business Growth Summit', apiSource:'eventbrite', source:'Demo Data',
-              location:`${state.region}, CA`, eventDate:new Date(Date.now()+7*24*60*60*1000).toISOString(),
-              triggers:['business_formation','executive_change'], consentStatus:'public_event_signup',
-              behaviors:['event_attendance'], distance:Math.random()*15, capturedAt:new Date().toISOString(),
-              contact:{email:'organizer@businesssummit.com', phone:'(714) 555-0123'},
-              complianceNotes:'Public event registration - attendee list available with consent',
-              venue:'Convention Center'
-            },
-            { id:`demo2_${Date.now()}`, name:`${state.region} Professional Services`, apiSource:'places', source:'Demo Data',
-              location:`${state.region}, CA`, triggers:['business_formation'], consentStatus:'business_public_record',
-              behaviors:['website_visit'], distance:Math.random()*12, capturedAt:new Date().toISOString(),
-              contact:{email:'info@profservices.com', phone:'(714) 555-0345'},
-              complianceNotes:'Business listing; outreach should be professional and non-automated.',
-              venue:'Business District'
-            },
-            { id:`demo3_${Date.now()}`, name:'New Artisan Coffee Roastery', apiSource:'yelp', source:'Demo Data',
-              location:`${state.region}, CA`, triggers:['new_business'], consentStatus:'business_public_record',
-              behaviors:['new_opening'], distance:Math.random()*8, capturedAt:new Date().toISOString(),
-              contact:{email:'hello@artisancoffee.com', phone:'(714) 555-0987'},
-              complianceNotes:'New business - perfect timing for professional introduction.',
-              venue:'Main Street District', categories:'Coffee, Food', rating:4.8, reviewCount:12
-            }
-          ];
-          notify('warn',`Running in Demo Mode (${sourceCount} APIs available - add API keys for live data).`);
-        }
-
-        state.opportunities = combined.map(it => ({ 
-          ...it, 
-          score: calculateScore(it), 
-          priority: it.score>=80?'High': it.score>=60?'Medium':'Low' 
-        })).sort((a,b)=>b.score-a.score);
-
-        notify('success', `Found ${state.opportunities.length} opportunities from ${sourceCount} connected APIs in ${state.region}.`);
-      } catch (e) {
-        console.error(e);
-        notify('danger','Scan failed. Check API connections and try again.');
-      } finally {
-        state.isScanning = false; render();
+      const activeApis = API_SOURCES.filter(api => state.apiStatus[api.id]);
+      if (activeApis.length === 0) {
+        notify('warn', 'No APIs connected. Running in Demo Mode.');
+        // Fallback demo data
+        state.opportunities = getDemoData();
+        state.isScanning = false;
+        render();
+        return;
       }
+
+      const apiPromises = activeApis.map(api =>
+        fetch(`/.netlify/functions/${api.endpoint}?region=${encodeURIComponent(state.region)}`)
+          .then(res => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`)))
+          .then(data => ({ ...data, apiSource: api.id, source: api.label }))
+      );
+
+      const results = await Promise.allSettled(apiPromises);
+      let combined = [];
+      let successfulScans = 0;
+
+      results.forEach((result, index) => {
+        const api = activeApis[index];
+        if (result.status === 'fulfilled') {
+          const data = result.value;
+          if (data.items && data.items.length > 0) {
+            combined = combined.concat(data.items.map(x => ({ ...x, apiSource: data.apiSource, source: data.source })));
+            successfulScans++;
+          }
+        } else {
+          console.error(`Failed to fetch from ${api.name}:`, result.reason);
+          notify('danger', `Failed to fetch from ${api.name}.`);
+        }
+      });
+      
+      // De-duplication
+      const uniqueOpportunities = new Map();
+      combined.forEach(op => {
+          const key = `${op.name.toLowerCase().trim()}|${(op.location || "").substring(0, 10)}`;
+          if (!uniqueOpportunities.has(key)) {
+              uniqueOpportunities.set(key, op);
+          }
+      });
+      
+      state.opportunities = Array.from(uniqueOpportunities.values()).map(it => {
+        const score = calculateScore(it);
+        return { ...it, score, priority: score >= 80 ? 'High' : score >= 60 ? 'Medium' : 'Low' };
+      });
+
+      notify('success', `Found ${state.opportunities.length} unique opportunities from ${successfulScans} APIs.`);
+      state.isScanning = false;
+      saveState();
+      render();
     };
+    
+    const getDemoData = () => [
+        { id:`demo_${Date.now()}`, name:'Small Business Growth Summit', apiSource:'eventbrite', source:'Demo Data', location:`${state.region}, CA`, eventDate:new Date(Date.now()+7*24*60*60*1000).toISOString(), triggers:['business_formation','executive_change'], consentStatus:'public_event_signup', behaviors:['event_attendance'], distance:Math.random()*15, capturedAt:new Date().toISOString(), contact:{email:'organizer@businesssummit.com', phone:'(714) 555-0123'}, complianceNotes:'Public event registration - attendee list available with consent', venue:'Convention Center' },
+        { id:`demo2_${Date.now()}`, name:`${state.region} Professional Services`, apiSource:'places', source:'Demo Data', location:`${state.region}, CA`, triggers:['business_formation'], consentStatus:'business_public_record', behaviors:['website_visit'], distance:Math.random()*12, capturedAt:new Date().toISOString(), contact:{email:'info@profservices.com', phone:'(714) 555-0345'}, complianceNotes:'Business listing; outreach should be professional and non-automated.', venue:'Business District' },
+        { id:`demo3_${Date.now()}`, name:'New Artisan Coffee Roastery', apiSource:'yelp', source:'Demo Data', location:`${state.region}, CA`, triggers:['new_business'], consentStatus:'business_public_record', behaviors:['new_opening'], distance:Math.random()*8, capturedAt:new Date().toISOString(), contact:{email:'hello@artisancoffee.com', phone:'(714) 555-0987'}, complianceNotes:'New business - perfect timing for professional introduction.', venue:'Main Street District', categories:'Coffee, Food', rating:4.8, reviewCount:12 }
+    ].map(it => {
+        const score = calculateScore(it);
+        return { ...it, score, priority: score >= 80 ? 'High' : score >= 60 ? 'Medium' : 'Low' };
+    });
 
     // ------- Render Functions -------
     const renderHeader = () => {
-      const regionOptions = REGIONS.map(r => `<option ${r===state.region?'selected':''}>${r}</option>`).join('');
-      const connectedCount = Object.keys(state.apiStatus).filter(k => k !== 'ok' && state.apiStatus[k]).length;
+      const regionOptions = REGIONS.map(r => `<option ${r === state.region ? 'selected' : ''}>${r}</option>`).join('');
+      const connectedCount = API_SOURCES.filter(api => state.apiStatus[api.id]).length;
       return el(`
         <header class="bg-white border-b border-gray-200">
           <div class="max-w-7xl mx-auto p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <h1 class="text-3xl font-bold text-gray-900">${CONFIG.APP_NAME}</h1>
-              <p class="text-gray-600 mt-1">Power Edition for ${CONFIG.AGENT_NAME} • ${connectedCount}/7 APIs Connected</p>
+              <p class="text-gray-600 mt-1">Power Edition for ${CONFIG.AGENT_NAME} • ${connectedCount}/${API_SOURCES.length} APIs Connected</p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
               <div class="flex items-center gap-2">
@@ -317,118 +240,138 @@
                   ${regionOptions}
                 </select>
               </div>
-              <button id="scanBtn" class="btn btn-primary ${state.isScanning?'loading':''}">${state.isScanning?'Scanning…': connectedCount > 0 ? `Scan ${connectedCount} APIs` : 'Demo Scan'}</button>
-              <button id="exportBtn" class="btn btn-green" ${state.opportunities.length? '':'disabled style="opacity:.5; cursor:not-allowed"'}>Export CSV</button>
+              <button id="scanBtn" class="btn btn-primary ${state.isScanning ? 'loading' : ''}">${state.isScanning ? 'Scanning…' : `Scan ${state.region}`}</button>
+              <button id="exportBtn" class="btn btn-green" ${state.opportunities.length ? '' : 'disabled style="opacity:.5; cursor:not-allowed"'}>Export CSV</button>
             </div>
           </div>
         </header>
       `);
     };
-
+    
     const renderNotifications = () => {
-      if (!state.notifications.length) return el('<div></div>');
-      const items = state.notifications.map(n => {
-        const cls = n.type==='success'?'bg-green-50 border-green-200 text-green-800':
-                    n.type==='warn'?'bg-yellow-50 border-yellow-200 text-yellow-800':
-                    n.type==='danger'?'bg-red-50 border-red-200 text-red-800':'bg-blue-50 border-blue-200 text-blue-800';
-        return `<div class="p-4 rounded-lg border ${cls}"><div class="flex items-center justify-between"><span class="text-sm">${n.message}</span><span class="text-xs opacity-75">${n.time.toLocaleTimeString()}</span></div></div>`;
-      }).join('');
-      return el(`<div class="mb-6 space-y-2">${items}</div>`);
+        if (!state.notifications.length) return el('<div></div>');
+        const items = state.notifications.map(n => {
+            const cls = {
+                success: 'bg-green-50 border-green-200 text-green-800',
+                warn: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+                danger: 'bg-red-50 border-red-200 text-red-800'
+            }[n.type] || 'bg-blue-50 border-blue-200 text-blue-800';
+            return `<div class="p-4 rounded-lg border ${cls}"><div class="flex items-center justify-between"><span class="text-sm">${n.message}</span><span class="text-xs opacity-75">${n.time.toLocaleTimeString()}</span></div></div>`;
+        }).join('');
+        return el(`<div class="mb-6 space-y-2">${items}</div>`);
     };
 
     const renderStats = () => {
-      const compliant = state.opportunities.filter(o => ['explicit_optin','public_event_signup','business_public_record'].includes(o.consentStatus)).length;
-      const connectedCount = Object.keys(state.apiStatus).filter(k => k !== 'ok' && state.apiStatus[k]).length;
       const highPriority = state.opportunities.filter(o => o.priority === 'High').length;
       const newBusinesses = state.opportunities.filter(o => (o.triggers||[]).includes('new_business') || (o.behaviors||[]).includes('new_opening')).length;
+      const connectedCount = API_SOURCES.filter(api => state.apiStatus[api.id]).length;
       return el(`
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
           <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-blue-100 text-blue-700">🎯</div><div><p class="text-2xl font-bold">${state.opportunities.length}</p><p class="text-gray-600">Total Opportunities</p></div></div></div>
           <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-red-100 text-red-700">🔥</div><div><p class="text-2xl font-bold">${highPriority}</p><p class="text-gray-600">High Priority</p></div></div></div>
           <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-orange-100 text-orange-700">🆕</div><div><p class="text-2xl font-bold">${newBusinesses}</p><p class="text-gray-600">New Businesses</p></div></div></div>
-          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-indigo-100 text-indigo-700">🗄️</div><div><p class="text-2xl font-bold">${connectedCount}/7</p><p class="text-gray-600">APIs Connected</p></div></div></div>
+          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-indigo-100 text-indigo-700">🗄️</div><div><p class="text-2xl font-bold">${connectedCount}/${API_SOURCES.length}</p><p class="text-gray-600">APIs Connected</p></div></div></div>
         </div>
       `);
     };
+    
+    const renderOpportunityCard = (o) => {
+        const priorityColors = { High: 'badge-red', Medium: 'badge-yellow', Low: 'badge-gray' };
+        const sourceColors = { Yelp: 'badge-orange', 'LA Permits': 'badge-teal', Ticketmaster: 'badge-purple', SeatGeek: 'badge-blue', Eventbrite: 'badge-green', 'Google Places': 'badge-yellow' };
+        const sourceIcons = { Yelp: '⭐', 'LA Permits': '🏗️', Ticketmaster: '🎫', SeatGeek: '🎪', Eventbrite: '📅', 'Google Places': '🏢' };
+        const scoreColors = (s) => s >= 80 ? 'badge-green' : s >= 60 ? 'badge-blue' : s >= 40 ? 'badge-yellow' : 'badge-gray';
 
-    const renderDashboard = () => {
-      const badge = (kind, text) => `<span class="badge ${kind}">${text}</span>`;
-      const items = state.opportunities.map(o => {
-        const pr = o.priority==='High'?'badge-red': o.priority==='Medium'?'badge-yellow':'badge-green';
-        const sourceBadge = o.source?.includes('Yelp') ? 'badge-orange' :
-                           o.source?.includes('LA City') ? 'badge-teal' :
-                           o.source?.includes('Ticketmaster') ? 'badge-purple' :
-                           o.source?.includes('SeatGeek') ? 'badge-blue' :
-                           o.source?.includes('Eventbrite') ? 'badge-green' :
-                           o.source?.includes('Google') ? 'badge-yellow' : 'badge-gray';
         return `
-          <div class="border border-gray-200 rounded-lg p-6 hover:border-blue-300 transition-colors">
+          <div class="border border-gray-200 rounded-lg p-6 hover:border-blue-300 transition-colors bg-white">
             <div class="flex justify-between items-start gap-6">
               <div class="flex-1">
-                <div class="flex items-center gap-3 mb-3">
-                  <span>${o.source?.includes('Yelp') ? '⭐' : o.source?.includes('LA City') ? '🏗️' : o.source?.includes('Ticket') ? '🎫' : o.source?.includes('SeatGeek') ? '🎪' : o.source?.includes('Event') ? '📅' : '🏢'}</span>
+                <div class="flex items-center gap-3 mb-3 flex-wrap">
+                  <span class="text-xl">${sourceIcons[o.source] || '🏢'}</span>
                   <h3 class="text-lg font-semibold text-gray-900">${o.name}</h3>
-                  ${badge(pr, o.priority+' Priority')}
-                  ${badge(sourceBadge, o.source)}
+                  <span class="badge ${priorityColors[o.priority] || 'badge-gray'}">${o.priority} Priority</span>
+                  <span class="badge ${sourceColors[o.source] || 'badge-gray'}">${o.source}</span>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                   <div><p class="text-sm text-gray-500">Contact</p><p class="font-medium text-gray-900">${o.contact?.phone || o.contact?.email || 'N/A'}</p></div>
                   <div><p class="text-sm text-gray-500">Distance</p><p class="font-medium text-gray-900">${(o.distance??0).toFixed(1)} miles</p></div>
-                  <div><p class="text-sm text-gray-500">${o.categories ? 'Categories' : 'Venue'}</p><p class="font-medium text-gray-900">${o.categories || o.venue || 'N/A'}</p></div>
+                  <div><p class="text-sm text-gray-500">${o.categories ? 'Categories' : 'Venue'}</p><p class="font-medium text-gray-900 truncate" title="${o.categories || o.venue || ''}">${o.categories || o.venue || 'N/A'}</p></div>
                   <div><p class="text-sm text-gray-500">${o.rating ? 'Rating' : 'Captured'}</p><p class="font-medium text-gray-900">${o.rating ? `${o.rating}⭐ (${o.reviewCount} reviews)` : new Date(o.capturedAt).toLocaleDateString()}</p></div>
                 </div>
                 <div class="flex flex-wrap gap-3">
                   ${o.contact?.email ? `<a class="btn btn-primary" href="mailto:${o.contact.email}?subject=Intro — ${CONFIG.AGENT_NAME}, New York Life&body=${encodeURIComponent(outreachTemplate())}">Email</a>` : `<button class="btn btn-gray" disabled>Email</button>`}
-                  ${o.contact?.phone ? `<a class="btn btn-green" href="tel:${o.contact.phone}">Call ${o.contact.phone}</a>` : o.url ? `<a class="btn btn-green" href="${o.url}" target="_blank" rel="noopener">View Details</a>` : `<button class="btn btn-gray" disabled>Call</button>`}
+                  ${o.contact?.phone ? `<a class="btn btn-green" href="tel:${o.contact.phone}">Call</a>` : o.url ? `<a class="btn btn-green" href="${o.url}" target="_blank" rel="noopener">View Details</a>` : `<button class="btn btn-gray" disabled>Call</button>`}
                   <a target="_blank" rel="noreferrer" class="btn btn-gray" href="https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(o.name)}">Research</a>
                 </div>
               </div>
               <div class="text-center">
-                <div class="text-2xl font-bold px-4 py-2 rounded-lg border ${scoreColor(o.score)}">${o.score}</div>
+                <div class="text-2xl font-bold px-4 py-2 rounded-lg border ${scoreColors(o.score)}">${o.score}</div>
                 <p class="text-xs text-gray-500 mt-1">AI Score</p>
               </div>
             </div>
           </div>
         `;
-      }).join('');
-      
-      const connectedCount = Object.keys(state.apiStatus).filter(k => k !== 'ok' && state.apiStatus[k]).length;
-      return el(`
-        <section>
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-semibold text-gray-900">Lead Opportunities</h2>
-            ${connectedCount > 0 ? `<span class="badge badge-green">${connectedCount} APIs Connected</span>` : '<span class="badge badge-yellow">Demo Mode</span>'}
-          </div>
-          ${state.opportunities.length? `<div class="space-y-4">${items}</div>` : `
-            <div class="text-center py-12">
-              <div class="text-5xl text-gray-400 mb-4">🎯</div>
-              <h3 class="text-lg font-semibold text-gray-900 mb-2">No Opportunities Yet</h3>
-              <p class="text-gray-600 mb-4">Click "Scan" to find opportunities in your selected region.</p>
-              <button id="emptyScan" class="btn btn-primary">Find Opportunities</button>
-            </div>`}
-        </section>
-      `);
     };
 
-    const outreachTemplate = () => `Subject: Quick Intro — ${CONFIG.AGENT_NAME}, New York Life (Local)
+    const renderDashboard = () => {
+        const f = state.filters;
+        let filteredOpportunities = state.opportunities
+            .filter(o => (f.source === 'all' || o.apiSource === f.source) && (f.priority === 'all' || o.priority === f.priority))
+            .sort((a, b) => {
+                if (f.sortBy === 'score_desc') return b.score - a.score;
+                if (f.sortBy === 'score_asc') return a.score - b.score;
+                if (f.sortBy === 'name_asc') return a.name.localeCompare(b.name);
+                if (f.sortBy === 'date_desc') return new Date(b.capturedAt) - new Date(a.capturedAt);
+                return 0;
+            });
+            
+        const items = filteredOpportunities.map(renderOpportunityCard).join('');
+        const sourceOptions = [{id: 'all', label: 'All Sources'}, ...API_SOURCES].map(s => `<option value="${s.id}" ${f.source === s.id ? 'selected' : ''}>${s.label}</option>`).join('');
+        
+        const emptyState = `
+            <div class="text-center py-12 card">
+                <div class="text-5xl text-gray-400 mb-4">🎯</div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">${state.opportunities.length > 0 ? 'No Matching Opportunities' : 'No Opportunities Yet'}</h3>
+                <p class="text-gray-600 mb-4">${state.opportunities.length > 0 ? 'Adjust your filters or perform a new scan.' : 'Click "Scan" to find opportunities in your selected region.'}</p>
+                ${state.opportunities.length === 0 ? `<button id="emptyScan" class="btn btn-primary">Find Opportunities</button>` : ''}
+            </div>`;
 
-Hi there,
-
-I'm ${CONFIG.AGENT_NAME}, a local New York Life agent in ${state.region}. I help families and small businesses with protection, retirement income, and long-term planning.
-
-If it's helpful, I can share a short, no-pressure overview tailored to your situation or upcoming milestones (new business, home purchase, family changes).
-
-Would you be open to a quick 10–15 minute call next week?
-
-— ${CONFIG.AGENT_NAME}
-${CONFIG.AGENT_LICENSE}
-${CONFIG.OFFICE_ADDRESS}
-${CONFIG.AGENT_EMAIL}
-`;
+        return el(`
+            <section>
+                <div class="card p-4 mb-6">
+                  <div class="flex flex-wrap items-center gap-4">
+                    <div class="flex-grow font-semibold text-gray-700">Showing ${filteredOpportunities.length} of ${state.opportunities.length} opportunities</div>
+                    <div class="flex items-center gap-2">
+                        <label for="filterSource" class="text-sm text-gray-600">Source</label>
+                        <select id="filterSource" data-filter="source" class="border border-gray-300 rounded-md px-2 py-1 text-sm">${sourceOptions}</select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="filterPriority" class="text-sm text-gray-600">Priority</label>
+                        <select id="filterPriority" data-filter="priority" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
+                            <option value="all" ${f.priority === 'all' ? 'selected' : ''}>All Priorities</option>
+                            <option value="High" ${f.priority === 'High' ? 'selected' : ''}>High</option>
+                            <option value="Medium" ${f.priority === 'Medium' ? 'selected' : ''}>Medium</option>
+                            <option value="Low" ${f.priority === 'Low' ? 'selected' : ''}>Low</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="sortBy" class="text-sm text-gray-600">Sort By</label>
+                        <select id="sortBy" data-filter="sortBy" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
+                            <option value="score_desc" ${f.sortBy === 'score_desc' ? 'selected' : ''}>Score (High-Low)</option>
+                            <option value="score_asc" ${f.sortBy === 'score_asc' ? 'selected' : ''}>Score (Low-High)</option>
+                            <option value="name_asc" ${f.sortBy === 'name_asc' ? 'selected' : ''}>Name (A-Z)</option>
+                            <option value="date_desc" ${f.sortBy === 'date_desc' ? 'selected' : ''}>Date (Newest)</option>
+                        </select>
+                    </div>
+                  </div>
+                </div>
+                ${items.length > 0 ? `<div class="space-y-4">${items}</div>` : emptyState}
+            </section>
+        `);
+    };
 
     const renderSetup = () => {
       const s = state.apiStatus;
-      const badge = (ok) => ok? '<span class="badge badge-green">Connected</span>' : '<span class="badge badge-red">Not Connected</span>';
+      const badge = (ok) => ok ? '<span class="badge badge-green">Connected</span>' : '<span class="badge badge-red">Not Connected</span>';
       return el(`
         <section>
           <h2 class="text-xl font-semibold text-gray-900 mb-4">API Configuration</h2>
@@ -437,82 +380,88 @@ ${CONFIG.AGENT_EMAIL}
             <ol class="list-decimal list-inside text-sm text-blue-900 space-y-1">
               <li>In Netlify Site Settings → Environment variables, add API keys for maximum lead coverage.</li>
               <li>Trigger a new deploy and refresh this page — badges should read "Connected".</li>
-              <li>🆕 <strong>New:</strong> Yelp Hot & New + LA Construction Permits now active!</li>
             </ol>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold">Eventbrite</h3>${badge(!!s.eventbrite)}</div><p class="text-sm text-gray-600">Env: <code>EVENTBRITE_TOKEN</code></p></div>
-            <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold">Google Places</h3>${badge(!!s.places)}</div><p class="text-sm text-gray-600">Env: <code>GOOGLE_PLACES_KEY</code></p></div>
-            <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold">SendGrid</h3>${badge(!!s.sendgrid)}</div><p class="text-sm text-gray-600">Env: <code>SENDGRID_API_KEY</code></p></div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+             <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-green-700">Eventbrite</h3>${badge(!!s.eventbrite)}</div><p class="text-sm text-gray-600">Env: <code>EVENTBRITE_TOKEN</code></p></div>
+             <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-yellow-700">Google Places</h3>${badge(!!s.places)}</div><p class="text-sm text-gray-600">Env: <code>GOOGLE_PLACES_KEY</code></p></div>
+             <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-purple-700">Ticketmaster</h3>${badge(!!s.ticketmaster)}</div><p class="text-sm text-gray-600">Env: <code>TICKETMASTER_API_KEY</code></p></div>
+             <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-blue-700">SeatGeek</h3>${badge(!!s.seatgeek)}</div><p class="text-sm text-gray-600">Env: <code>SEATGEEK_CLIENT_ID</code></p></div>
+             <div class="border border-gray-200 rounded-lg p-6 bg-orange-50"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-orange-700">Yelp Hot & New</h3>${badge(!!s.yelp)}</div><p class="text-sm text-gray-600">Env: <code>YELP_API_KEY</code></p></div>
+             <div class="border border-gray-200 rounded-lg p-6 bg-teal-50"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-teal-700">LA City Permits</h3>${badge(!!s.lapermits)}</div><p class="text-sm text-gray-600">No API key needed</p></div>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-purple-700">Ticketmaster</h3>${badge(!!s.ticketmaster)}</div><p class="text-sm text-gray-600">Env: <code>TICKETMASTER_API_KEY</code></p><p class="text-xs text-gray-500 mt-1">Events & concerts nationwide</p></div>
-            <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-blue-700">SeatGeek</h3>${badge(!!s.seatgeek)}</div><p class="text-sm text-gray-600">Env: <code>SEATGEEK_CLIENT_ID</code></p><p class="text-xs text-gray-500 mt-1">Sports & entertainment events</p></div>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div class="border border-gray-200 rounded-lg p-6 bg-orange-50"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-orange-700">🆕 Yelp Hot & New</h3>${badge(!!s.yelp)}</div><p class="text-sm text-gray-600">Env: <code>YELP_API_KEY</code></p><p class="text-xs text-gray-500 mt-1">Brand new businesses with reviews</p></div>
-            <div class="border border-gray-200 rounded-lg p-6 bg-teal-50"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-teal-700">🆕 LA City Permits</h3>${badge(!!s.lapermits)}</div><p class="text-sm text-gray-600">No API key needed</p><p class="text-xs text-gray-500 mt-1">Construction permits = new businesses</p></div>
-          </div>
-          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-5">
-            <h3 class="text-lg font-semibold text-yellow-900 mb-2">Compliance Notes</h3>
-            <ul class="text-sm text-yellow-900 space-y-1">
-              <li>• Use public event data only with attendee consent for follow-up.</li>
-              <li>• Public business listings are appropriate for professional outreach; avoid automated bulk emails.</li>
-              <li>• This tool is informational; confirm scripts and templates with NYL compliance.</li>
-              <li>• Event data should be used to identify networking opportunities, not for direct marketing without consent.</li>
-              <li>• 🆕 New business openings are prime targets for professional introduction calls.</li>
-            </ul>
+          <h3 class="text-lg font-semibold text-gray-800 mb-2">Other Services</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+             <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold">SendGrid</h3>${badge(!!s.sendgrid)}</div><p class="text-sm text-gray-600">Env: <code>SENDGRID_API_KEY</code></p></div>
           </div>
         </section>
       `);
     };
 
+    const outreachTemplate = () => `Hi there,\n\nI'm ${CONFIG.AGENT_NAME}, a local New York Life agent in ${state.region}. I help families and small businesses with protection, retirement income, and long-term planning.\n\nIf it's helpful, I can share a short, no-pressure overview tailored to your situation or upcoming milestones (new business, home purchase, family changes).\n\nWould you be open to a quick 10–15 minute call next week?\n\n— ${CONFIG.AGENT_NAME}\n${CONFIG.AGENT_LICENSE}\n${CONFIG.OFFICE_ADDRESS}\n${CONFIG.AGENT_EMAIL}`;
+
     const renderTemplates = () => el(`
       <section class="space-y-3">
         <div class="flex items-center justify-between">
           <h2 class="text-xl font-semibold text-gray-900">Email Template (Compliant tone)</h2>
-          <button id="copyTpl" class="btn btn-gray">Copy</button>
+          <button id="copyTpl" class="btn btn-gray">Copy Template</button>
         </div>
         <pre class="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded border border-gray-200">${outreachTemplate()}</pre>
         <p class="text-xs text-gray-500">Tip: paste into your email client or CRM and personalize before sending.</p>
       </section>
     `);
-
+    
     const renderTabs = () => {
       const tabBtn = (id, label) => `<button data-tab="${id}" class="py-4 px-6 border-b-2 font-medium text-sm ${state.activeTab===id?'border-blue-600 text-blue-600':'border-transparent text-gray-600 hover:text-gray-800'}">${label}</button>`;
       const wrap = el(`<div class="card"><div class="border-b border-gray-200 flex">${tabBtn('dashboard','Dashboard')}${tabBtn('setup','API Setup')}${tabBtn('templates','Templates')}</div><div class="p-6" id="tabPanel"></div></div>`);
       const panel = wrap.querySelector('#tabPanel');
-      if (state.activeTab==='dashboard') panel.appendChild(renderDashboard());
-      if (state.activeTab==='setup') panel.appendChild(renderSetup());
-      if (state.activeTab==='templates') panel.appendChild(renderTemplates());
+      if (state.activeTab === 'dashboard') panel.appendChild(renderDashboard());
+      if (state.activeTab === 'setup') panel.appendChild(renderSetup());
+      if (state.activeTab === 'templates') panel.appendChild(renderTemplates());
       return wrap;
     };
 
     const render = () => {
       const app = document.getElementById('app');
-      app.innerHTML = '';
+      app.innerHTML = ''; // Clear previous content
+
       app.appendChild(renderHeader());
       const main = el('<main class="max-w-7xl mx-auto p-6"></main>');
       main.appendChild(renderNotifications());
       main.appendChild(renderStats());
       main.appendChild(renderTabs());
       app.appendChild(main);
-      const footer = el(`<footer class="max-w-7xl mx-auto p-6 text-xs text-gray-500"><div class="bg-gray-50 border border-gray-200 p-4 rounded">© ${new Date().getFullYear()} New York Life Insurance Company. For informational purposes only; not an offer or solicitation. ${CONFIG.AGENT_NAME} — ${CONFIG.AGENT_LICENSE}. Office: ${CONFIG.OFFICE_ADDRESS}. Contact: ${CONFIG.AGENT_EMAIL}.</div></footer>`);
+      const footer = el(`<footer class="max-w-7xl mx-auto p-6 text-xs text-gray-500 text-center"><p class="text-gray-500">© ${new Date().getFullYear()} ${CONFIG.APP_NAME}. For agent use only. Always adhere to NYL compliance guidelines.</p></footer>`);
       app.appendChild(footer);
 
-      // events
-      document.getElementById('regionSelect').onchange = (e)=>{ state.region = e.target.value; };
+      // Bind events
+      document.getElementById('regionSelect').onchange = (e) => { state.region = e.target.value; saveState(); };
       document.getElementById('scanBtn').onclick = runScan;
-      const emptyScan = document.getElementById('emptyScan'); if (emptyScan) emptyScan.onclick = runScan;
       document.getElementById('exportBtn').onclick = exportCSV;
+      const emptyScanBtn = document.getElementById('emptyScan');
+      if (emptyScanBtn) emptyScanBtn.onclick = runScan;
+      
       document.querySelectorAll('[data-tab]').forEach(btn => btn.onclick = () => { state.activeTab = btn.dataset.tab; render(); });
-      const copy = document.getElementById('copyTpl'); if (copy) copy.onclick = async () => {
-        const ok = await copyText(outreachTemplate());
-        notify(ok?'success':'danger', ok?'Outreach template copied.':'Copy failed. Please copy manually.');
+      
+      document.querySelectorAll('[data-filter]').forEach(select => {
+          select.onchange = (e) => {
+              state.filters[e.target.dataset.filter] = e.target.value;
+              render();
+          };
+      });
+
+      const copyBtn = document.getElementById('copyTpl');
+      if (copyBtn) copyBtn.onclick = async () => {
+        try {
+            await navigator.clipboard.writeText(outreachTemplate());
+            notify('success', 'Outreach template copied.');
+        } catch(e) {
+            notify('danger', 'Copy failed. Please copy manually.');
+        }
       };
     };
 
-    // Init
+    // ------- Init -------
     render();
     fetchConfig();
   </script>
