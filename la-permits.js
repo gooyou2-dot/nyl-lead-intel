@@ -1,38 +1,82 @@
-export const handler = async (event) => {
+// netlify/functions/la-permits.js
+exports.handler = async (event) => {
   try {
-    // You can swap datasetId if you prefer a different LADBS permits dataset.
-    const datasetId = process.env.LADBSPERMIT_DATASET_ID || "hbkd-qubn"; // LADBS Permits (LA Open Data)
-    const { days = "14", limit = "50" } = event.queryStringParameters || {};
-    const since = new Date(Date.now() - Number(days)*24*60*60*1000).toISOString();
+    const region = (event.queryStringParameters && event.queryStringParameters.region) || 'Orange County';
+    
+    // Only run for LA County region
+    if (!region.toLowerCase().includes('los angeles')) {
+      return { 
+        statusCode: 200, 
+        body: JSON.stringify({ 
+          ok: true, 
+          items: [],
+          note: "LA Permits only available for Los Angeles County region" 
+        }) 
+      };
+    }
 
+    const datasetId = "hbkd-qubn"; // LADBS Permits dataset
+    const days = "30"; // Last 30 days
+    const limit = "20";
+    
+    const since = new Date(Date.now() - Number(days) * 24 * 60 * 60 * 1000).toISOString();
+    
     const params = new URLSearchParams({
-      "$limit": String(limit),
+      "$limit": limit,
       "$order": "issue_date DESC",
-      "$where": `issue_date >= '${since}'`
+      "$where": `issue_date >= '${since}' AND permit_type_desc IS NOT NULL`
     });
 
-    // Optional App Token for higher rate limits
-    const appToken = process.env.SOCRATA_APP_TOKEN;
-    const headers = appToken ? { "X-App-Token": appToken } : {};
+    const url = `https://data.lacity.org/resource/${datasetId}.json?${params.toString()}`;
+    
+    const res = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!res.ok) throw new Error(`LA Open Data API ${res.status}`);
+    const data = await res.json();
 
-    const url = `https://data.lacity.org/resource/${datasetId}.json?${params}`;
-    const r = await fetch(url, { headers });
-    if (!r.ok) return j(r.status, { error: "socrata_status", status: r.status });
-    const data = await r.json();
-
-    const items = (data || []).map(p => ({
-      id: `ladbs_${p.permit_num || p.id || ""}`,
-      description: p.work_desc || p.description || "",
-      issue_date: p.issue_date || "",
-      permit_type: p.permit_type || p.permit_type_desc || "",
-      address: [p.house_no, p.street_dir, p.street_name, p.suffix].filter(Boolean).join(" ") || p.location || "",
-      city: "Los Angeles",
-      source: "la_permits"
+    const items = (data || []).slice(0, 10).map(permit => ({
+      id: `ladbs_${permit.permit_num || Date.now()}`,
+      name: permit.work_desc || permit.description || 'Construction Project',
+      location: `Los Angeles, CA`,
+      eventDate: permit.issue_date || new Date().toISOString(),
+      triggers: ['business_formation', 'property_development'],
+      consentStatus: 'business_public_record',
+      behaviors: ['construction_permit'],
+      distance: Math.random() * 25,
+      capturedAt: new Date().toISOString(),
+      contact: { 
+        email: '', 
+        phone: '' 
+      },
+      complianceNotes: 'Public permit record - indicates potential new business opportunity.',
+      venue: [permit.house_no, permit.street_dir, permit.street_name, permit.suffix]
+        .filter(Boolean).join(' ') || 'Los Angeles',
+      url: '',
+      permitType: permit.permit_type_desc || permit.permit_type || 'Construction',
+      contractor: permit.contractor_name || 'N/A'
     }));
 
-    return j(200, { items, raw_count: items.length });
+    return { 
+      statusCode: 200, 
+      body: JSON.stringify({ 
+        ok: true, 
+        items,
+        source: 'LA City Permits' 
+      }) 
+    };
   } catch (e) {
-    return j(500, { error: "ladbs_error", message: e.message });
+    console.error('LA Permits error:', e);
+    return { 
+      statusCode: 200, 
+      body: JSON.stringify({ 
+        ok: false, 
+        items: [], 
+        error: String(e) 
+      }) 
+    };
   }
 };
-const j = (code, body) => ({ statusCode: code, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
