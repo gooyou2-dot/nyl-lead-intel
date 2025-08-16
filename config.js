@@ -1,3 +1,4 @@
+// netlify/functions/config.js
 exports.handler = async () => {
   try {
     return {
@@ -12,7 +13,9 @@ exports.handler = async () => {
         places: !!process.env.GOOGLE_PLACES_KEY,
         sendgrid: !!process.env.SENDGRID_API_KEY,
         ticketmaster: !!process.env.TICKETMASTER_API_KEY,
-        seatgeek: !!process.env.SEATGEEK_CLIENT_ID
+        seatgeek: !!process.env.SEATGEEK_CLIENT_ID,
+        yelp: !!process.env.YELP_API_KEY,
+        lapermits: true // No API key needed for LA Open Data
       })
     };
   } catch (e) {
@@ -25,7 +28,9 @@ exports.handler = async () => {
         places: false, 
         sendgrid: false,
         ticketmaster: false,
-        seatgeek: false
+        seatgeek: false,
+        yelp: false,
+        lapermits: false
       }) 
     };
   }
