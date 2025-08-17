@@ -1,0 +1,35 @@
+[build]
+  functions = "netlify/functions"
+  publish = "."
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/ticketmaster"
+  to = "/.netlify/functions/ticketmaster"
+  status = 200
+
+[[redirects]]
+  from = "/api/seatgeek"
+  to = "/.netlify/functions/seatgeek"
+  status = 200
+
+[[redirects]]
+  from = "/api/yelp"
+  to = "/.netlify/functions/yelp"
+  status = 200
+
+[[redirects]]
+  from = "/api/la-permits"
+  to = "/.netlify/functions/la-permits"
+  status = 200
+
