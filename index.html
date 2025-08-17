@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>NYL Lead Intelligence Platform (Power Edition)</title>
-  <meta name="description" content="Advanced lead intelligence dashboard with 7 API integrations.">
+  <meta name="description" content="Advanced lead intelligence dashboard with 8+ API integrations.">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#f8fafc; }
@@ -51,7 +51,15 @@
       { id: 'ticketmaster',name: 'Ticketmaster API', endpoint: 'ticketmaster',         label: 'Ticketmaster' },
       { id: 'seatgeek',    name: 'SeatGeek API',     endpoint: 'seatgeek',           label: 'SeatGeek' },
       { id: 'yelp',        name: 'Yelp Hot & New',   endpoint: 'yelp',               label: 'Yelp' },
-      { id: 'lapermits',   name: 'LA City Permits',  endpoint: 'la-permits',         label: 'LA Permits' }
+      { id: 'lapermits',   name: 'LA City Permits',  endpoint: 'la-permits',         label: 'LA Permits' },
+      // NEW: LA City Businesses public records API
+      { id: 'lacity',      name: 'LA City Businesses', endpoint: 'lacity-businesses',  label: 'LA Businesses' },
+    ];
+
+    // NEW: Add links to your published Google Sheets here
+    const CSV_SOURCES = [
+      // Example: [ 'https://docs.google.com/spreadsheets/d/e/2PACX-1v.../pub?output=csv', 'LA County FBN' ],
+      // Example: [ 'https://docs.google.com/spreadsheets/d/e/2PACX-1v.../pub?output=csv', 'CA SOS Export' ],
     ];
 
     // ------- State Management -------
@@ -65,9 +73,7 @@
       filters: { source: 'all', priority: 'all', sortBy: 'score_desc' }
     };
     API_SOURCES.forEach(api => defaultState.apiStatus[api.id] = false);
-
     let state = { ...defaultState };
-
     const saveState = () => {
       localStorage.setItem('nyl-region', state.region);
       localStorage.setItem('nyl-opportunities', JSON.stringify(state.opportunities));
@@ -79,27 +85,24 @@
       t.innerHTML = html.trim();
       return t.content.firstElementChild;
     };
-
     const notify = (type, message) => {
       state.notifications.unshift({ id: Date.now() + Math.random(), type, message, time: new Date() });
       state.notifications = state.notifications.slice(0, 5);
       render();
     };
-
     const csvEscape = (value) => {
       let s = String(value ?? '');
       if (s.includes('"')) s = s.replaceAll('"', '""');
       if (/[",\n]/.test(s)) s = `"${s}"`;
       return s;
     };
-
     const exportCSV = () => {
       if (!state.opportunities.length) { notify('danger', 'No opportunities to export.'); return; }
       const rows = state.opportunities.map(o => ({
         Name: o.name, Score: o.score, Source: o.source, Location: o.location || '', Priority: o.priority || '',
         Contact: o.contact?.email || '', Phone: o.contact?.phone || '', Compliance: o.consentStatus || '',
         Date: (new Date(o.capturedAt)).toLocaleDateString(), Venue: o.venue || '', URL: o.url || '',
-        Categories: o.categories || '', Rating: o.rating || '', Reviews: o.reviewCount || ''
+        Categories: o.categories || '', Rating: o.rating || '', Reviews: o.reviewCount || '', Industry: o.extra?.naics || ''
       }));
       const header = Object.keys(rows[0]).map(csvEscape).join(',');
       const body = rows.map(r => Object.values(r).map(csvEscape).join(',')).join('\n');
@@ -111,18 +114,18 @@
       notify('success', `Exported ${rows.length} rows to CSV.`);
     };
     
-    // ------- Scoring Logic -------
+    // ------- Scoring Logic (unchanged) -------
     const calculateScore = (lead) => {
       let score = 0;
       const weights = { life_event_trigger:.35, api_data_quality:.25, compliance_status:.20, behavioral_signals:.15, geographic_relevance:.05 };
       const triggers = lead.triggers || [];
       let t = 0;
-      if (triggers.includes('business_formation')) t += 50; if (triggers.includes('new_business')) t += 45;
+      if (triggers.includes('business_formation') || triggers.includes('new_registration') || triggers.includes('public_record')) t += 50; if (triggers.includes('new_business')) t += 45;
       if (triggers.includes('property_development')) t += 40; if (triggers.includes('property_purchase')) t += 45;
       if (triggers.includes('family_event')) t += 40; if (triggers.includes('executive_change')) t += 35;
       if (triggers.includes('event_attendance')) t += 30;
       score += Math.min(t,100) * weights.life_event_trigger;
-      let dq = { eventbrite: 90, places: 80, ticketmaster: 85, seatgeek: 85, yelp: 88, lapermits: 82 }[lead.apiSource] || 60;
+      let dq = { eventbrite: 90, places: 80, ticketmaster: 85, seatgeek: 85, yelp: 88, lapermits: 82, lacity: 85, csv: 70 }[lead.apiSource] || 60;
       const ageHrs = Math.abs(Date.now() - new Date(lead.capturedAt||Date.now())) / (3600000);
       if (ageHrs <= 1) dq += 10; else if (ageHrs <= 24) dq += 5;
       score += Math.min(dq,100) * weights.api_data_quality;
@@ -147,59 +150,59 @@
         const res = await fetch('/.netlify/functions/config');
         if (!res.ok) throw new Error('Network response was not ok');
         state.apiStatus = await res.json();
-      } catch (e) {
-        console.error("Failed to fetch API config:", e);
-        notify('danger', 'Could not fetch API configuration.');
-      }
+      } catch (e) { console.error("Failed to fetch API config:", e); notify('danger', 'Could not fetch API configuration.'); }
       render();
     };
 
+    // MODIFIED: runScan now includes CSV imports
     const runScan = async () => {
       state.isScanning = true;
       state.opportunities = [];
       render();
 
       const activeApis = API_SOURCES.filter(api => state.apiStatus[api.id]);
-      if (activeApis.length === 0) {
-        notify('warn', 'No APIs connected. Running in Demo Mode.');
-        // Fallback demo data
-        state.opportunities = getDemoData();
+      const totalSources = activeApis.length + CSV_SOURCES.length;
+
+      if (totalSources === 0) {
+        notify('warn', 'No APIs or CSVs configured. Running in Demo Mode.');
+        state.opportunities = getDemoData(); // Fallback demo data
         state.isScanning = false;
         render();
         return;
       }
-
+      
       const apiPromises = activeApis.map(api =>
         fetch(`/.netlify/functions/${api.endpoint}?region=${encodeURIComponent(state.region)}`)
           .then(res => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`)))
-          .then(data => ({ ...data, apiSource: api.id, source: api.label }))
       );
 
-      const results = await Promise.allSettled(apiPromises);
+      const csvPromises = CSV_SOURCES.map(([url, label]) => 
+        fetch(`/.netlify/functions/sheet-import?url=${encodeURIComponent(url)}&label=${encodeURIComponent(label)}&region=${encodeURIComponent(state.region)}`)
+          .then(res => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`)))
+      );
+
+      const results = await Promise.allSettled([...apiPromises, ...csvPromises]);
       let combined = [];
       let successfulScans = 0;
 
       results.forEach((result, index) => {
-        const api = activeApis[index];
-        if (result.status === 'fulfilled') {
+        const sourceName = index < activeApis.length ? activeApis[index].name : CSV_SOURCES[index - activeApis.length][1];
+        if (result.status === 'fulfilled' && result.value.ok) {
           const data = result.value;
           if (data.items && data.items.length > 0) {
-            combined = combined.concat(data.items.map(x => ({ ...x, apiSource: data.apiSource, source: data.source })));
+            combined = combined.concat(data.items);
             successfulScans++;
           }
         } else {
-          console.error(`Failed to fetch from ${api.name}:`, result.reason);
-          notify('danger', `Failed to fetch from ${api.name}.`);
+          console.error(`Failed to fetch from ${sourceName}:`, result.reason || result.value.error);
+          notify('danger', `Failed to fetch from ${sourceName}.`);
         }
       });
       
-      // De-duplication
       const uniqueOpportunities = new Map();
       combined.forEach(op => {
           const key = `${op.name.toLowerCase().trim()}|${(op.location || "").substring(0, 10)}`;
-          if (!uniqueOpportunities.has(key)) {
-              uniqueOpportunities.set(key, op);
-          }
+          if (!uniqueOpportunities.has(key)) { uniqueOpportunities.set(key, op); }
       });
       
       state.opportunities = Array.from(uniqueOpportunities.values()).map(it => {
@@ -207,16 +210,16 @@
         return { ...it, score, priority: score >= 80 ? 'High' : score >= 60 ? 'Medium' : 'Low' };
       });
 
-      notify('success', `Found ${state.opportunities.length} unique opportunities from ${successfulScans} APIs.`);
+      notify('success', `Found ${state.opportunities.length} unique opportunities from ${successfulScans} of ${totalSources} sources.`);
       state.isScanning = false;
       saveState();
       render();
     };
     
     const getDemoData = () => [
-        { id:`demo_${Date.now()}`, name:'Small Business Growth Summit', apiSource:'eventbrite', source:'Demo Data', location:`${state.region}, CA`, eventDate:new Date(Date.now()+7*24*60*60*1000).toISOString(), triggers:['business_formation','executive_change'], consentStatus:'public_event_signup', behaviors:['event_attendance'], distance:Math.random()*15, capturedAt:new Date().toISOString(), contact:{email:'organizer@businesssummit.com', phone:'(714) 555-0123'}, complianceNotes:'Public event registration - attendee list available with consent', venue:'Convention Center' },
-        { id:`demo2_${Date.now()}`, name:`${state.region} Professional Services`, apiSource:'places', source:'Demo Data', location:`${state.region}, CA`, triggers:['business_formation'], consentStatus:'business_public_record', behaviors:['website_visit'], distance:Math.random()*12, capturedAt:new Date().toISOString(), contact:{email:'info@profservices.com', phone:'(714) 555-0345'}, complianceNotes:'Business listing; outreach should be professional and non-automated.', venue:'Business District' },
-        { id:`demo3_${Date.now()}`, name:'New Artisan Coffee Roastery', apiSource:'yelp', source:'Demo Data', location:`${state.region}, CA`, triggers:['new_business'], consentStatus:'business_public_record', behaviors:['new_opening'], distance:Math.random()*8, capturedAt:new Date().toISOString(), contact:{email:'hello@artisancoffee.com', phone:'(714) 555-0987'}, complianceNotes:'New business - perfect timing for professional introduction.', venue:'Main Street District', categories:'Coffee, Food', rating:4.8, reviewCount:12 }
+        { id:`demo_${Date.now()}`, name:'Small Business Growth Summit', apiSource:'eventbrite', source:'Demo Data', location:`${state.region}, CA`, eventDate:new Date(Date.now()+7*24*60*60*1000).toISOString(), triggers:['business_formation','executive_change'], consentStatus:'public_event_signup', behaviors:['event_attendance'], distance:Math.random()*15, capturedAt:new Date().toISOString(), contact:{email:'organizer@businesssummit.com', phone:'(714) 555-0123'}, venue:'Convention Center' },
+        { id:`demo2_${Date.now()}`, name:`${state.region} Professional Services`, apiSource:'places', source:'Demo Data', location:`${state.region}, CA`, triggers:['business_formation'], consentStatus:'business_public_record', behaviors:['website_visit'], distance:Math.random()*12, capturedAt:new Date().toISOString(), contact:{email:'info@profservices.com', phone:'(714) 555-0345'}, venue:'Business District', extra: { naics: 'Professional, Scientific, and Technical Services' } },
+        { id:`demo3_${Date.now()}`, name:'New Artisan Coffee Roastery', apiSource:'yelp', source:'Demo Data', location:`${state.region}, CA`, triggers:['new_business'], consentStatus:'business_public_record', behaviors:['new_opening'], distance:Math.random()*8, capturedAt:new Date().toISOString(), contact:{email:'hello@artisancoffee.com', phone:'(714) 555-0987'}, venue:'Main Street District', categories:'Coffee, Food', rating:4.8, reviewCount:12 }
     ].map(it => {
         const score = calculateScore(it);
         return { ...it, score, priority: score >= 80 ? 'High' : score >= 60 ? 'Medium' : 'Low' };
@@ -226,20 +229,16 @@
     const renderHeader = () => {
       const regionOptions = REGIONS.map(r => `<option ${r === state.region ? 'selected' : ''}>${r}</option>`).join('');
       const connectedCount = API_SOURCES.filter(api => state.apiStatus[api.id]).length;
+      const totalSources = connectedCount + CSV_SOURCES.length;
       return el(`
         <header class="bg-white border-b border-gray-200">
           <div class="max-w-7xl mx-auto p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <h1 class="text-3xl font-bold text-gray-900">${CONFIG.APP_NAME}</h1>
-              <p class="text-gray-600 mt-1">Power Edition for ${CONFIG.AGENT_NAME} • ${connectedCount}/${API_SOURCES.length} APIs Connected</p>
+              <p class="text-gray-600 mt-1">Power Edition for ${CONFIG.AGENT_NAME} • ${totalSources} Sources Configured</p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
-              <div class="flex items-center gap-2">
-                <span class="text-gray-600 text-sm">Region</span>
-                <select id="regionSelect" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-                  ${regionOptions}
-                </select>
-              </div>
+              <div class="flex items-center gap-2"><span class="text-gray-600 text-sm">Region</span><select id="regionSelect" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">${regionOptions}</select></div>
               <button id="scanBtn" class="btn btn-primary ${state.isScanning ? 'loading' : ''}">${state.isScanning ? 'Scanning…' : `Scan ${state.region}`}</button>
               <button id="exportBtn" class="btn btn-green" ${state.opportunities.length ? '' : 'disabled style="opacity:.5; cursor:not-allowed"'}>Export CSV</button>
             </div>
@@ -250,170 +249,91 @@
     
     const renderNotifications = () => {
         if (!state.notifications.length) return el('<div></div>');
-        const items = state.notifications.map(n => {
-            const cls = {
-                success: 'bg-green-50 border-green-200 text-green-800',
-                warn: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-                danger: 'bg-red-50 border-red-200 text-red-800'
-            }[n.type] || 'bg-blue-50 border-blue-200 text-blue-800';
-            return `<div class="p-4 rounded-lg border ${cls}"><div class="flex items-center justify-between"><span class="text-sm">${n.message}</span><span class="text-xs opacity-75">${n.time.toLocaleTimeString()}</span></div></div>`;
-        }).join('');
+        const items = state.notifications.map(n => `<div class="p-4 rounded-lg border ${{success:'bg-green-50 border-green-200 text-green-800',warn:'bg-yellow-50 border-yellow-200 text-yellow-800',danger:'bg-red-50 border-red-200 text-red-800'}[n.type]||'bg-blue-50 border-blue-200 text-blue-800'}"><div class="flex items-center justify-between"><span class="text-sm">${n.message}</span><span class="text-xs opacity-75">${n.time.toLocaleTimeString()}</span></div></div>`).join('');
         return el(`<div class="mb-6 space-y-2">${items}</div>`);
     };
 
     const renderStats = () => {
       const highPriority = state.opportunities.filter(o => o.priority === 'High').length;
-      const newBusinesses = state.opportunities.filter(o => (o.triggers||[]).includes('new_business') || (o.behaviors||[]).includes('new_opening')).length;
-      const connectedCount = API_SOURCES.filter(api => state.apiStatus[api.id]).length;
+      const newBusinesses = state.opportunities.filter(o => (o.triggers||[]).some(t => ['new_business', 'new_registration', 'public_record'].includes(t)) || (o.behaviors||[]).includes('new_opening')).length;
+      const connectedCount = API_SOURCES.filter(api => state.apiStatus[api.id]).length + CSV_SOURCES.length;
       return el(`
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
-          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-blue-100 text-blue-700">🎯</div><div><p class="text-2xl font-bold">${state.opportunities.length}</p><p class="text-gray-600">Total Opportunities</p></div></div></div>
-          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-red-100 text-red-700">🔥</div><div><p class="text-2xl font-bold">${highPriority}</p><p class="text-gray-600">High Priority</p></div></div></div>
-          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-orange-100 text-orange-700">🆕</div><div><p class="text-2xl font-bold">${newBusinesses}</p><p class="text-gray-600">New Businesses</p></div></div></div>
-          <div class="card p-6"><div class="flex items-center gap-3"><div class="p-2 rounded-lg bg-indigo-100 text-indigo-700">🗄️</div><div><p class="text-2xl font-bold">${connectedCount}/${API_SOURCES.length}</p><p class="text-gray-600">APIs Connected</p></div></div></div>
+          <div class="card p-6"><div class="flex items-center gap-3">🎯<div><p class="text-2xl font-bold">${state.opportunities.length}</p><p class="text-gray-600">Total Opportunities</p></div></div></div>
+          <div class="card p-6"><div class="flex items-center gap-3">🔥<div><p class="text-2xl font-bold">${highPriority}</p><p class="text-gray-600">High Priority</p></div></div></div>
+          <div class="card p-6"><div class="flex items-center gap-3">🆕<div><p class="text-2xl font-bold">${newBusinesses}</p><p class="text-gray-600">New Businesses</p></div></div></div>
+          <div class="card p-6"><div class="flex items-center gap-3">🗄️<div><p class="text-2xl font-bold">${connectedCount}</p><p class="text-gray-600">Sources Configured</p></div></div></div>
         </div>
       `);
     };
     
+    // MODIFIED: Opportunity card now shows NAICS industry code
     const renderOpportunityCard = (o) => {
-        const priorityColors = { High: 'badge-red', Medium: 'badge-yellow', Low: 'badge-gray' };
-        const sourceColors = { Yelp: 'badge-orange', 'LA Permits': 'badge-teal', Ticketmaster: 'badge-purple', SeatGeek: 'badge-blue', Eventbrite: 'badge-green', 'Google Places': 'badge-yellow' };
-        const sourceIcons = { Yelp: '⭐', 'LA Permits': '🏗️', Ticketmaster: '🎫', SeatGeek: '🎪', Eventbrite: '📅', 'Google Places': '🏢' };
+        const sourceIcons = { yelp: '⭐', lapermits: '🏗️', ticketmaster: '🎫', seatgeek: '🎪', eventbrite: '📅', places: '🏢', lacity: '🏛️', csv: '📄' };
         const scoreColors = (s) => s >= 80 ? 'badge-green' : s >= 60 ? 'badge-blue' : s >= 40 ? 'badge-yellow' : 'badge-gray';
-
         return `
           <div class="border border-gray-200 rounded-lg p-6 hover:border-blue-300 transition-colors bg-white">
             <div class="flex justify-between items-start gap-6">
               <div class="flex-1">
                 <div class="flex items-center gap-3 mb-3 flex-wrap">
-                  <span class="text-xl">${sourceIcons[o.source] || '🏢'}</span>
+                  <span class="text-xl">${sourceIcons[o.apiSource] || '🏢'}</span>
                   <h3 class="text-lg font-semibold text-gray-900">${o.name}</h3>
-                  <span class="badge ${priorityColors[o.priority] || 'badge-gray'}">${o.priority} Priority</span>
-                  <span class="badge ${sourceColors[o.source] || 'badge-gray'}">${o.source}</span>
+                  <span class="badge ${{High:'badge-red', Medium:'badge-yellow'}[o.priority]||'badge-gray'}">${o.priority}</span>
+                  <span class="badge badge-gray">${o.source}</span>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                  <div><p class="text-sm text-gray-500">Contact</p><p class="font-medium text-gray-900">${o.contact?.phone || o.contact?.email || 'N/A'}</p></div>
-                  <div><p class="text-sm text-gray-500">Distance</p><p class="font-medium text-gray-900">${(o.distance??0).toFixed(1)} miles</p></div>
-                  <div><p class="text-sm text-gray-500">${o.categories ? 'Categories' : 'Venue'}</p><p class="font-medium text-gray-900 truncate" title="${o.categories || o.venue || ''}">${o.categories || o.venue || 'N/A'}</p></div>
-                  <div><p class="text-sm text-gray-500">${o.rating ? 'Rating' : 'Captured'}</p><p class="font-medium text-gray-900">${o.rating ? `${o.rating}⭐ (${o.reviewCount} reviews)` : new Date(o.capturedAt).toLocaleDateString()}</p></div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                  <div><p class="text-sm text-gray-500">Contact</p><p class="font-medium text-gray-900 truncate">${o.contact?.phone || o.contact?.email || 'N/A'}</p></div>
+                  <div><p class="text-sm text-gray-500">Distance</p><p class="font-medium text-gray-900">${(o.distance??0).toFixed(1)} mi</p></div>
+                  ${o.extra?.naics ? `<div><p class="text-sm text-gray-500">Industry</p><p class="font-medium text-gray-900 truncate" title="${o.extra.naics}">${o.extra.naics}</p></div>` : `<div><p class="text-sm text-gray-500">Captured</p><p class="font-medium text-gray-900">${new Date(o.capturedAt).toLocaleDateString()}</p></div>`}
                 </div>
                 <div class="flex flex-wrap gap-3">
-                  ${o.contact?.email ? `<a class="btn btn-primary" href="mailto:${o.contact.email}?subject=Intro — ${CONFIG.AGENT_NAME}, New York Life&body=${encodeURIComponent(outreachTemplate())}">Email</a>` : `<button class="btn btn-gray" disabled>Email</button>`}
-                  ${o.contact?.phone ? `<a class="btn btn-green" href="tel:${o.contact.phone}">Call</a>` : o.url ? `<a class="btn btn-green" href="${o.url}" target="_blank" rel="noopener">View Details</a>` : `<button class="btn btn-gray" disabled>Call</button>`}
-                  <a target="_blank" rel="noreferrer" class="btn btn-gray" href="https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(o.name)}">Research</a>
+                  ${o.contact?.email ? `<a class="btn btn-primary" href="mailto:${o.contact.email}?subject=Intro — ${CONFIG.AGENT_NAME}, New York Life&body=${encodeURIComponent(outreachTemplate())}">Email</a>` : ''}
+                  ${o.contact?.phone ? `<a class="btn btn-green" href="tel:${o.contact.phone}">Call</a>` : o.url || o.contact?.website ? `<a class="btn btn-green" href="${o.url || o.contact.website}" target="_blank" rel="noopener">View Details</a>` : ''}
+                  <a target="_blank" rel="noreferrer" class="btn btn-gray" href="https://www.google.com/search?q=${encodeURIComponent(o.name + ' ' + o.location)}">Research</a>
                 </div>
               </div>
-              <div class="text-center">
-                <div class="text-2xl font-bold px-4 py-2 rounded-lg border ${scoreColors(o.score)}">${o.score}</div>
-                <p class="text-xs text-gray-500 mt-1">AI Score</p>
-              </div>
+              <div class="text-center"><div class="text-2xl font-bold px-4 py-2 rounded-lg border ${scoreColors(o.score)}">${o.score}</div><p class="text-xs text-gray-500 mt-1">AI Score</p></div>
             </div>
-          </div>
-        `;
+          </div>`;
     };
 
+    // MODIFIED: Filter now includes new sources
     const renderDashboard = () => {
         const f = state.filters;
         let filteredOpportunities = state.opportunities
             .filter(o => (f.source === 'all' || o.apiSource === f.source) && (f.priority === 'all' || o.priority === f.priority))
             .sort((a, b) => {
-                if (f.sortBy === 'score_desc') return b.score - a.score;
-                if (f.sortBy === 'score_asc') return a.score - b.score;
-                if (f.sortBy === 'name_asc') return a.name.localeCompare(b.name);
-                if (f.sortBy === 'date_desc') return new Date(b.capturedAt) - new Date(a.capturedAt);
-                return 0;
+                if (f.sortBy === 'score_desc') return b.score - a.score; if (f.sortBy === 'name_asc') return a.name.localeCompare(b.name);
+                if (f.sortBy === 'date_desc') return new Date(b.capturedAt) - new Date(a.capturedAt); return 0;
             });
             
         const items = filteredOpportunities.map(renderOpportunityCard).join('');
-        const sourceOptions = [{id: 'all', label: 'All Sources'}, ...API_SOURCES].map(s => `<option value="${s.id}" ${f.source === s.id ? 'selected' : ''}>${s.label}</option>`).join('');
+        const allSources = [{id: 'all', label: 'All Sources'}, ...API_SOURCES, ...CSV_SOURCES.map(([url, label]) => ({id:'csv', label}))];
+        const sourceOptions = [...new Map(allSources.map(item => [item.label, item])).values()].map(s => `<option value="${s.id}" ${f.source === s.id ? 'selected' : ''}>${s.label}</option>`).join('');
         
-        const emptyState = `
-            <div class="text-center py-12 card">
-                <div class="text-5xl text-gray-400 mb-4">🎯</div>
-                <h3 class="text-lg font-semibold text-gray-900 mb-2">${state.opportunities.length > 0 ? 'No Matching Opportunities' : 'No Opportunities Yet'}</h3>
-                <p class="text-gray-600 mb-4">${state.opportunities.length > 0 ? 'Adjust your filters or perform a new scan.' : 'Click "Scan" to find opportunities in your selected region.'}</p>
-                ${state.opportunities.length === 0 ? `<button id="emptyScan" class="btn btn-primary">Find Opportunities</button>` : ''}
-            </div>`;
-
-        return el(`
-            <section>
-                <div class="card p-4 mb-6">
-                  <div class="flex flex-wrap items-center gap-4">
-                    <div class="flex-grow font-semibold text-gray-700">Showing ${filteredOpportunities.length} of ${state.opportunities.length} opportunities</div>
-                    <div class="flex items-center gap-2">
-                        <label for="filterSource" class="text-sm text-gray-600">Source</label>
-                        <select id="filterSource" data-filter="source" class="border border-gray-300 rounded-md px-2 py-1 text-sm">${sourceOptions}</select>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <label for="filterPriority" class="text-sm text-gray-600">Priority</label>
-                        <select id="filterPriority" data-filter="priority" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
-                            <option value="all" ${f.priority === 'all' ? 'selected' : ''}>All Priorities</option>
-                            <option value="High" ${f.priority === 'High' ? 'selected' : ''}>High</option>
-                            <option value="Medium" ${f.priority === 'Medium' ? 'selected' : ''}>Medium</option>
-                            <option value="Low" ${f.priority === 'Low' ? 'selected' : ''}>Low</option>
-                        </select>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <label for="sortBy" class="text-sm text-gray-600">Sort By</label>
-                        <select id="sortBy" data-filter="sortBy" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
-                            <option value="score_desc" ${f.sortBy === 'score_desc' ? 'selected' : ''}>Score (High-Low)</option>
-                            <option value="score_asc" ${f.sortBy === 'score_asc' ? 'selected' : ''}>Score (Low-High)</option>
-                            <option value="name_asc" ${f.sortBy === 'name_asc' ? 'selected' : ''}>Name (A-Z)</option>
-                            <option value="date_desc" ${f.sortBy === 'date_desc' ? 'selected' : ''}>Date (Newest)</option>
-                        </select>
-                    </div>
-                  </div>
-                </div>
-                ${items.length > 0 ? `<div class="space-y-4">${items}</div>` : emptyState}
-            </section>
-        `);
+        const emptyState = `<div class="text-center py-12 card"><div class="text-5xl text-gray-400 mb-4">🎯</div><h3 class="text-lg font-semibold text-gray-900 mb-2">${state.opportunities.length > 0 ? 'No Matching Opportunities' : 'No Opportunities Yet'}</h3><p class="text-gray-600 mb-4">${state.opportunities.length > 0 ? 'Adjust your filters or perform a new scan.' : 'Click "Scan" to find opportunities in your selected region.'}</p>${state.opportunities.length === 0 ? `<button id="emptyScan" class="btn btn-primary">Find Opportunities</button>` : ''}</div>`;
+        return el(`<section> <div class="card p-4 mb-6"><div class="flex flex-wrap items-center gap-4"><div class="flex-grow font-semibold text-gray-700">Showing ${filteredOpportunities.length} of ${state.opportunities.length}</div><div class="flex items-center gap-2"><label class="text-sm">Source</label><select data-filter="source" class="border border-gray-300 rounded-md px-2 py-1 text-sm">${sourceOptions}</select></div><div class="flex items-center gap-2"><label class="text-sm">Priority</label><select data-filter="priority" class="border border-gray-300 rounded-md px-2 py-1 text-sm"><option value="all">All</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></div><div class="flex items-center gap-2"><label class="text-sm">Sort By</label><select data-filter="sortBy" class="border border-gray-300 rounded-md px-2 py-1 text-sm"><option value="score_desc">Score</option><option value="name_asc">Name</option><option value="date_desc">Date</option></select></div></div></div> ${items.length > 0 ? `<div class="space-y-4">${items}</div>` : emptyState}</section>`);
     };
 
+    // MODIFIED: Setup page includes new API
     const renderSetup = () => {
       const s = state.apiStatus;
       const badge = (ok) => ok ? '<span class="badge badge-green">Connected</span>' : '<span class="badge badge-red">Not Connected</span>';
+      const apiCards = API_SOURCES.map(api => `<div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold">${api.label}</h3>${badge(!!s[api.id])}</div><p class="text-sm text-gray-600">${api.id === 'lapermits' || api.id === 'lacity' ? 'No key needed' : `Env: \`${{eventbrite:'EVENTBRITE_TOKEN',places:'GOOGLE_PLACES_KEY',ticketmaster:'TICKETMASTER_API_KEY',seatgeek:'SEATGEEK_CLIENT_ID',yelp:'YELP_API_KEY'}[api.id]}\``}</p></div>`).join('');
       return el(`
         <section>
-          <h2 class="text-xl font-semibold text-gray-900 mb-4">API Configuration</h2>
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-6">
-            <h3 class="text-lg font-semibold text-blue-900 mb-2">Power Edition APIs</h3>
-            <ol class="list-decimal list-inside text-sm text-blue-900 space-y-1">
-              <li>In Netlify Site Settings → Environment variables, add API keys for maximum lead coverage.</li>
-              <li>Trigger a new deploy and refresh this page — badges should read "Connected".</li>
-            </ol>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-             <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-green-700">Eventbrite</h3>${badge(!!s.eventbrite)}</div><p class="text-sm text-gray-600">Env: <code>EVENTBRITE_TOKEN</code></p></div>
-             <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-yellow-700">Google Places</h3>${badge(!!s.places)}</div><p class="text-sm text-gray-600">Env: <code>GOOGLE_PLACES_KEY</code></p></div>
-             <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-purple-700">Ticketmaster</h3>${badge(!!s.ticketmaster)}</div><p class="text-sm text-gray-600">Env: <code>TICKETMASTER_API_KEY</code></p></div>
-             <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-blue-700">SeatGeek</h3>${badge(!!s.seatgeek)}</div><p class="text-sm text-gray-600">Env: <code>SEATGEEK_CLIENT_ID</code></p></div>
-             <div class="border border-gray-200 rounded-lg p-6 bg-orange-50"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-orange-700">Yelp Hot & New</h3>${badge(!!s.yelp)}</div><p class="text-sm text-gray-600">Env: <code>YELP_API_KEY</code></p></div>
-             <div class="border border-gray-200 rounded-lg p-6 bg-teal-50"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold text-teal-700">LA City Permits</h3>${badge(!!s.lapermits)}</div><p class="text-sm text-gray-600">No API key needed</p></div>
-          </div>
-          <h3 class="text-lg font-semibold text-gray-800 mb-2">Other Services</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-             <div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold">SendGrid</h3>${badge(!!s.sendgrid)}</div><p class="text-sm text-gray-600">Env: <code>SENDGRID_API_KEY</code></p></div>
-          </div>
-        </section>
-      `);
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">API & Data Source Configuration</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">${apiCards}</div>
+          <div class="card p-6"><h3 class="font-semibold mb-2">CSV Sources (${CSV_SOURCES.length} configured)</h3>${CSV_SOURCES.length ? `<ul class="list-disc list-inside text-sm text-gray-600">${CSV_SOURCES.map(([url, label]) => `<li>${label}</li>`).join('')}</ul>` : `<p class="text-sm text-gray-600">No CSV sources configured. Edit <code>index.html</code> to add published Google Sheet links.</p>`}</div>
+        </section>`);
     };
 
-    const outreachTemplate = () => `Hi there,\n\nI'm ${CONFIG.AGENT_NAME}, a local New York Life agent in ${state.region}. I help families and small businesses with protection, retirement income, and long-term planning.\n\nIf it's helpful, I can share a short, no-pressure overview tailored to your situation or upcoming milestones (new business, home purchase, family changes).\n\nWould you be open to a quick 10–15 minute call next week?\n\n— ${CONFIG.AGENT_NAME}\n${CONFIG.AGENT_LICENSE}\n${CONFIG.OFFICE_ADDRESS}\n${CONFIG.AGENT_EMAIL}`;
-
-    const renderTemplates = () => el(`
-      <section class="space-y-3">
-        <div class="flex items-center justify-between">
-          <h2 class="text-xl font-semibold text-gray-900">Email Template (Compliant tone)</h2>
-          <button id="copyTpl" class="btn btn-gray">Copy Template</button>
-        </div>
-        <pre class="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded border border-gray-200">${outreachTemplate()}</pre>
-        <p class="text-xs text-gray-500">Tip: paste into your email client or CRM and personalize before sending.</p>
-      </section>
-    `);
+    const outreachTemplate = () => `Hi there,\n\nI'm ${CONFIG.AGENT_NAME}, a local New York Life agent in ${state.region}.\n\nI help families and businesses with protection, retirement income, and long-term planning. Would you be open to a brief call next week to see if I can be a resource for you?\n\n— ${CONFIG.AGENT_NAME}\n${CONFIG.AGENT_LICENSE}\n${CONFIG.AGENT_EMAIL}`;
+    const renderTemplates = () => el(`<section><div class="flex items-center justify-between"><h2 class="text-xl font-semibold">Email Template</h2><button id="copyTpl" class="btn btn-gray">Copy</button></div><pre class="whitespace-pre-wrap text-sm bg-gray-50 p-4 mt-3 rounded border">${outreachTemplate()}</pre></section>`);
     
     const renderTabs = () => {
       const tabBtn = (id, label) => `<button data-tab="${id}" class="py-4 px-6 border-b-2 font-medium text-sm ${state.activeTab===id?'border-blue-600 text-blue-600':'border-transparent text-gray-600 hover:text-gray-800'}">${label}</button>`;
-      const wrap = el(`<div class="card"><div class="border-b border-gray-200 flex">${tabBtn('dashboard','Dashboard')}${tabBtn('setup','API Setup')}${tabBtn('templates','Templates')}</div><div class="p-6" id="tabPanel"></div></div>`);
+      const wrap = el(`<div class="card"><div class="border-b flex">${tabBtn('dashboard','Dashboard')}${tabBtn('setup','API Setup')}${tabBtn('templates','Templates')}</div><div class="p-6" id="tabPanel"></div></div>`);
       const panel = wrap.querySelector('#tabPanel');
       if (state.activeTab === 'dashboard') panel.appendChild(renderDashboard());
       if (state.activeTab === 'setup') panel.appendChild(renderSetup());
@@ -423,42 +343,26 @@
 
     const render = () => {
       const app = document.getElementById('app');
-      app.innerHTML = ''; // Clear previous content
-
+      app.innerHTML = '';
       app.appendChild(renderHeader());
       const main = el('<main class="max-w-7xl mx-auto p-6"></main>');
       main.appendChild(renderNotifications());
       main.appendChild(renderStats());
       main.appendChild(renderTabs());
       app.appendChild(main);
-      const footer = el(`<footer class="max-w-7xl mx-auto p-6 text-xs text-gray-500 text-center"><p class="text-gray-500">© ${new Date().getFullYear()} ${CONFIG.APP_NAME}. For agent use only. Always adhere to NYL compliance guidelines.</p></footer>`);
-      app.appendChild(footer);
+      app.appendChild(el(`<footer class="max-w-7xl mx-auto p-6 text-xs text-center text-gray-500"><p>© ${new Date().getFullYear()} ${CONFIG.APP_NAME}. For agent use only.</p></footer>`));
 
-      // Bind events
       document.getElementById('regionSelect').onchange = (e) => { state.region = e.target.value; saveState(); };
       document.getElementById('scanBtn').onclick = runScan;
+      const emptyScanBtn = document.getElementById('emptyScan'); if (emptyScanBtn) emptyScanBtn.onclick = runScan;
       document.getElementById('exportBtn').onclick = exportCSV;
-      const emptyScanBtn = document.getElementById('emptyScan');
-      if (emptyScanBtn) emptyScanBtn.onclick = runScan;
-      
       document.querySelectorAll('[data-tab]').forEach(btn => btn.onclick = () => { state.activeTab = btn.dataset.tab; render(); });
-      
       document.querySelectorAll('[data-filter]').forEach(select => {
-          select.onchange = (e) => {
-              state.filters[e.target.dataset.filter] = e.target.value;
-              render();
-          };
+          select.onchange = (e) => { state.filters[e.target.dataset.filter] = e.target.value; render(); };
+          state.filters[select.dataset.filter] = select.value;
       });
-
       const copyBtn = document.getElementById('copyTpl');
-      if (copyBtn) copyBtn.onclick = async () => {
-        try {
-            await navigator.clipboard.writeText(outreachTemplate());
-            notify('success', 'Outreach template copied.');
-        } catch(e) {
-            notify('danger', 'Copy failed. Please copy manually.');
-        }
-      };
+      if (copyBtn) copyBtn.onclick = () => navigator.clipboard.writeText(outreachTemplate()).then(() => notify('success', 'Template copied.'));
     };
 
     // ------- Init -------
