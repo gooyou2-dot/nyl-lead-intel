@@ -1,79 +1,43 @@
-// netlify/functions/yelp.js
-exports.handler = async (event) => {
+import { ok, fail } from './_shared/respond.js';
+import { regionCenter, nowISO } from './_shared/geo.js';
+
+const KEY = process.env.YELP_API_KEY;
+
+export async function handler(req) {
   try {
-    const key = process.env.YELP_API_KEY;
-    if (!key) {
-      return { 
-        statusCode: 200, 
-        body: JSON.stringify({ 
-          ok: false, 
-          items: [], 
-          note: "Missing YELP_API_KEY" 
-        }) 
-      };
-    }
+    if (!KEY) return ok([]);
+    const { searchParams } = new URL(req.url);
+    const region = searchParams.get('region') || 'Orange County';
+    const { lat, lng } = regionCenter(region);
 
-    const region = (event.queryStringParameters && event.queryStringParameters.region) || 'Orange County';
-    const location = region.includes('County') ? region.replace(' County', '') + ', CA' : region + ', CA';
-    
-    const params = new URLSearchParams({
-      attributes: 'hot_and_new',
-      location: location,
-      limit: '20',
-      radius: '16000', // ~10 miles
-      categories: 'restaurants,bars,retail,professional,health,financialservices'
-    });
+    const url = new URL('https://api.yelp.com/v3/businesses/search');
+    url.searchParams.set('attributes', 'hot_and_new');
+    url.searchParams.set('latitude', String(lat));
+    url.searchParams.set('longitude', String(lng));
+    url.searchParams.set('radius', '30000');
+    url.searchParams.set('limit', '30');
 
-    const url = `https://api.yelp.com/v3/businesses/search?${params.toString()}`;
-    
-    const res = await fetch(url, {
-      headers: { 
-        'Authorization': `Bearer ${key}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!res.ok) throw new Error(`Yelp API ${res.status}`);
-    const data = await res.json();
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${KEY}` } });
+    if (!r.ok) return fail(r.status, `Yelp error: ${r.statusText}`);
+    const data = await r.json();
 
-    const items = (data.businesses || []).slice(0, 10).map(business => ({
-      id: `yelp_${business.id}`,
-      name: business.name || 'Business',
-      location: `${region}, CA`,
-      triggers: ['business_formation', 'new_business'],
-      consentStatus: 'business_public_record',
-      behaviors: ['new_opening'],
-      distance: business.distance ? (business.distance * 0.000621371).toFixed(1) : Math.random() * 15,
-      capturedAt: new Date().toISOString(),
-      contact: { 
-        email: '', 
-        phone: business.display_phone || '' 
-      },
-      complianceNotes: 'Public business listing - professional outreach appropriate.',
-      venue: business.location?.display_address?.join(', ') || '',
-      url: business.url || '',
-      categories: (business.categories || []).map(c => c.title).join(', '),
-      rating: business.rating || 0,
-      reviewCount: business.review_count || 0
+    const items = (data.businesses || []).map(b => ({
+      id: `yelp_${b.id}`,
+      name: b.name,
+      apiSource: 'yelp', source: 'Yelp Hot & New',
+      location: b.location?.display_address?.join(', ') || `${region}, CA`,
+      triggers: ['new_opening'], consentStatus: 'business_public_record', behaviors: ['new_opening'],
+      distance: (b.distance || 0) / 1609.34, // meters to miles
+      capturedAt: nowISO(),
+      contact: { phone: b.display_phone || '' }, venue: '',
+      categories: (b.categories || []).map(c => c.title).slice(0,3).join(', '),
+      url: b.url || '#',
+      rating: b.rating,
+      reviewCount: b.review_count
     }));
-
-    return { 
-      statusCode: 200, 
-      body: JSON.stringify({ 
-        ok: true, 
-        items,
-        source: 'Yelp Hot & New' 
-      }) 
-    };
+    return ok(items);
   } catch (e) {
-    console.error('Yelp error:', e);
-    return { 
-      statusCode: 200, 
-      body: JSON.stringify({ 
-        ok: false, 
-        items: [], 
-        error: String(e) 
-      }) 
-    };
+    console.error('yelp:', e);
+    return ok([]);
   }
-};
+}

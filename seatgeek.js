@@ -1,71 +1,39 @@
-// netlify/functions/seatgeek.js
-exports.handler = async (event) => {
+import { ok, fail } from './_shared/respond.js';
+import { regionCenter, nowISO } from './_shared/geo.js';
+
+const CLIENT_ID = process.env.SEATGEEK_CLIENT_ID;
+
+export async function handler(req) {
   try {
-    const clientId = process.env.SEATGEEK_CLIENT_ID;
-    if (!clientId) {
-      return { 
-        statusCode: 200, 
-        body: JSON.stringify({ 
-          ok: false, 
-          items: [], 
-          note: "Missing SEATGEEK_CLIENT_ID" 
-        }) 
-      };
-    }
+    if (!CLIENT_ID) return ok([]);
+    const { searchParams } = new URL(req.url);
+    const region = searchParams.get('region') || 'Orange County';
+    const { lat, lng } = regionCenter(region);
 
-    const region = (event.queryStringParameters && event.queryStringParameters.region) || 'Orange County';
-    const cityName = region.includes('County') ? region.replace(' County', '') : region;
-    
-    const params = new URLSearchParams({
-      client_id: clientId,
-      'venue.city': cityName,
-      'venue.state': 'CA',
-      per_page: '20',
-      sort: 'datetime_local.asc'
-    });
+    const url = new URL('https://api.seatgeek.com/2/events');
+    url.searchParams.set('client_id', CLIENT_ID);
+    url.searchParams.set('lat', String(lat));
+    url.searchParams.set('lon', String(lng));
+    url.searchParams.set('range', '30mi');
+    url.searchParams.set('per_page', '30');
 
-    const url = `https://api.seatgeek.com/2/events?${params.toString()}`;
-    
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`SeatGeek API ${res.status}`);
-    const data = await res.json();
+    const r = await fetch(url);
+    if (!r.ok) return fail(r.status, `SeatGeek error: ${r.statusText}`);
+    const data = await r.json();
 
-    const items = (data.events || []).slice(0, 10).map(event => ({
-      id: `sg_${event.id}`,
-      name: event.title || 'Event',
-      location: `${region}, CA`,
-      eventDate: event.datetime_local,
-      triggers: ['event_attendance', 'business_formation'],
-      consentStatus: 'public_event_signup',
-      behaviors: ['event_attendance'],
-      distance: Math.random() * 20,
-      capturedAt: new Date().toISOString(),
-      contact: { 
-        email: '', 
-        phone: '' 
-      },
-      complianceNotes: 'Public event data - ensure attendee consent for follow-up.',
-      venue: event.venue?.name || '',
-      url: event.url || ''
+    const items = (data.events || []).map(ev => ({
+      id: `sg_${ev.id}`, name: ev.title, apiSource: 'seatgeek', source: 'SeatGeek',
+      location: ev.venue ? `${ev.venue.address || ''} ${ev.venue.extended_address || ''}`.trim() || `${region}, CA` : `${region}, CA`,
+      triggers: ['event_attendance'], consentStatus: 'public_event_signup', behaviors: ['event_attendance'],
+      distance: 0, capturedAt: nowISO(), contact: {},
+      venue: ev.venue?.name || '',
+      eventDate: ev.datetime_utc || null,
+      categories: (ev.taxonomies || []).map(t => t.name).slice(0,3).join(', '),
+      url: ev.url || '#'
     }));
-
-    return { 
-      statusCode: 200, 
-      body: JSON.stringify({ 
-        ok: true, 
-        items,
-        source: 'SeatGeek API' 
-      }) 
-    };
+    return ok(items);
   } catch (e) {
-    console.error('SeatGeek error:', e);
-    return { 
-      statusCode: 200, 
-      body: JSON.stringify({ 
-        ok: false, 
-        items: [], 
-        error: String(e) 
-      }) 
-    };
+    console.error('seatgeek:', e);
+    return ok([]);
   }
-};
+}
