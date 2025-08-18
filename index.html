@@ -17,117 +17,72 @@
                   radial-gradient(1200px 800px at 110% 10%, #f5f3ff 0%, transparent 60%), 
                   linear-gradient(160deg, #fafafa, #f8fafc);
     }
-    .glass { 
-      backdrop-filter: saturate(180%) blur(16px); 
-      background: rgba(255, 255, 255, .7); 
-    }
-    .card { 
-      background: #fff; 
-      border: 1px solid rgba(15, 23, 42, .06); 
-      box-shadow: 0 1px 2px rgba(2, 6, 23, .06); 
-      border-radius: 16px; 
-    }
-    .btn { 
-      display: inline-flex; 
-      align-items: center; 
-      gap: .5rem; 
-      border-radius: 12px; 
-      padding: .65rem 1rem; 
-      font-weight: 600; 
-      transition: all .2s; 
-      cursor: pointer; 
-    }
-    .btn[disabled] { 
-      opacity: .5; 
-      cursor: not-allowed; 
-    }
-    .btn-primary { 
-      background: #111827; 
-      color: #fff; 
-    }
-    .btn-primary:hover:not([disabled]) { 
-      background: #0b1220; 
-    }
-    .btn-cta { 
-      background: #4f46e5; 
-      color: #fff; 
-    }
-    .btn-cta:hover:not([disabled]) { 
-      background: #4338ca; 
-    }
-    .badge { 
-      display: inline-flex; 
-      align-items: center; 
-      gap: .35rem; 
-      border-radius: 999px; 
-      border: 1px solid currentColor; 
-      padding: .15rem .5rem; 
-      font-size: .725rem; 
-      font-weight: 700; 
-    }
-    .shadow-soft { 
-      box-shadow: 0 10px 30px rgba(15, 23, 42, .06), 0 2px 8px rgba(15, 23, 42, .04); 
-    }
-    .skeleton { 
-      background: linear-gradient(90deg, rgba(148, 163, 184, .18), rgba(148, 163, 184, .08) 40%, rgba(148, 163, 184, .18));
-      background-size: 200% 100%;
-      animation: shimmer 1.6s infinite;
-    }
-    @keyframes shimmer {
-      0% { background-position: 200% 0 }
-      100% { background-position: -200% 0 }
-    }
-    .loading { 
-      opacity: .6; 
-      pointer-events: none; 
-    }
-    .text-ink-50 { color: #f8fafc; }
-    .text-ink-100 { color: #f1f5f9; }
-    .text-ink-200 { color: #e2e8f0; }
-    .text-ink-300 { color: #cbd5e1; }
-    .text-ink-400 { color: #94a3b8; }
-    .text-ink-500 { color: #64748b; }
-    .text-ink-600 { color: #475569; }
-    .text-ink-700 { color: #334155; }
-    .text-ink-800 { color: #1e293b; }
-    .text-ink-900 { color: #0f172a; }
-    .bg-ink-50 { background-color: #f8fafc; }
-    .bg-ink-100 { background-color: #f1f5f9; }
-    .border-ink-200 { border-color: #e2e8f0; }
-    .border-ink-300 { border-color: #cbd5e1; }
+    .glass { backdrop-filter: saturate(180%) blur(16px); background: rgba(255, 255, 255, .7) }
+    .card { background: #fff; border: 1px solid rgba(15, 23, 42, .06); box-shadow: 0 1px 2px rgba(2, 6, 23, .06); border-radius: 16px }
+    .btn { display: inline-flex; align-items: center; gap:.5rem; border-radius: 12px; padding: .65rem 1rem; font-weight: 600; transition: all .2s; cursor: pointer }
+    .btn[disabled] { opacity: .5; cursor: not-allowed }
+    .btn-primary { background: #111827; color: #fff }
+    .btn-primary:hover:not([disabled]) { background: #0b1220 }
+    .btn-cta { background: #4f46e5; color: #fff }
+    .btn-cta:hover:not([disabled]) { background: #4338ca }
+    .badge { display:inline-flex; align-items:center; gap:.35rem; border-radius:999px; border:1px solid currentColor; padding:.15rem .5rem; font-size:.725rem; font-weight:700 }
+    .shadow-soft { box-shadow: 0 10px 30px rgba(15, 23, 42, .06), 0 2px 8px rgba(15, 23, 42, .04) }
+    .skeleton { background: linear-gradient(90deg, rgba(148,163,184,.18), rgba(148,163,184,.08) 40%, rgba(148,163,184,.18)); background-size:200% 100%; animation: shimmer 1.6s infinite }
+    @keyframes shimmer { 0% { background-position:200% 0 } 100% { background-position:-200% 0 } }
+    @keyframes fadeOut { 0%{opacity:1} 90%{opacity:1} 100%{opacity:0} }
+    .loading { opacity:.6; pointer-events:none }
+    .text-ink-50{color:#f8fafc}.text-ink-100{color:#f1f5f9}.text-ink-200{color:#e2e8f0}.text-ink-300{color:#cbd5e1}.text-ink-400{color:#94a3b8}.text-ink-500{color:#64748b}.text-ink-600{color:#475569}.text-ink-700{color:#334155}.text-ink-800{color:#1e293b}.text-ink-900{color:#0f172a}
+    .bg-ink-50{background-color:#f8fafc}.bg-ink-100{background-color:#f1f5f9}.border-ink-200{border-color:#e2e8f0}.border-ink-300{border-color:#cbd5e1}
+    @media (prefers-reduced-motion: reduce) { .skeleton{animation:none} .shadow-soft{box-shadow:none} }
   </style>
 </head>
 <body class="text-ink-800">
   <div id="app" class="min-h-screen"></div>
 
   <script type="module">
+  'use strict'
     // =====================
     // Config & constants
     // =====================
+    const host = window.location.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1';
+    const isNetlify = host.endsWith('.netlify.app') || host.includes('netlify');
+    const isNetlifyDevProxy = isLocal && window.location.port === '8888';
+
     const CONFIG = {
       APP_NAME: 'NYL Lead Intelligence',
       AGENT_NAME: 'Carnell Lake',
       AGENT_EMAIL: 'clake02@ft.newyorklife.com',
       AGENT_LICENSE: 'CA License #4423063',
       DEFAULT_REGION: 'Orange County',
-      // Auto-detect demo mode based on environment
-      DEMO_MODE: !window.location.hostname.includes('netlify') && !window.location.hostname.includes('localhost:8888')
+      VERSION: 'v2.2.0',
+      DEMO_MODE: !(isNetlify || isLocal || isNetlifyDevProxy)
     };
 
     const REGIONS = ['Orange County','Los Angeles County','San Diego County','Santa Clara County','Sacramento County','Riverside County'];
 
     const API_SOURCES = [
-      { id:'places',       label:'Google Places',        endpoint:'places-search',        needsKey:true, envVar:'GOOGLE_PLACES_KEY' },
-      { id:'eventbrite',   label:'Eventbrite',           endpoint:'eventbrite-search',    needsKey:true, envVar:'EVENTBRITE_TOKEN' },
-      { id:'ticketmaster', label:'Ticketmaster',         endpoint:'ticketmaster',         needsKey:true, envVar:'TICKETMASTER_API_KEY' },
-      { id:'seatgeek',     label:'SeatGeek',             endpoint:'seatgeek',            needsKey:true, envVar:'SEATGEEK_CLIENT_ID' },
-      { id:'yelp',         label:'Yelp Hot & New',       endpoint:'yelp',                needsKey:true, envVar:'YELP_API_KEY' },
-      { id:'lapermits',    label:'LA City Permits',      endpoint:'la-permits',          needsKey:false, envVar:null },
-      { id:'lacity',       label:'LA City Businesses',   endpoint:'lacity-businesses',   needsKey:false, envVar:null },
+      { id:'places',       label:'Google Places',        endpoint:'places-search',        needsKey:true,  envVar:'GOOGLE_PLACES_KEY' },
+      { id:'eventbrite',   label:'Eventbrite',           endpoint:'eventbrite-search',    needsKey:true,  envVar:'EVENTBRITE_TOKEN' },
+      { id:'ticketmaster', label:'Ticketmaster',         endpoint:'ticketmaster',         needsKey:true,  envVar:'TICKETMASTER_API_KEY' },
+      { id:'seatgeek',     label:'SeatGeek',             endpoint:'seatgeek',             needsKey:true,  envVar:'SEATGEEK_CLIENT_ID' },
+      { id:'yelp',         label:'Yelp Hot & New',       endpoint:'yelp',                 needsKey:true,  envVar:'YELP_API_KEY' },
+      { id:'lapermits',    label:'LA City Permits',      endpoint:'la-permits',           needsKey:false, envVar:null },
+      { id:'lacity',       label:'LA City Businesses',   endpoint:'lacity-businesses',    needsKey:false, envVar:null },
     ];
 
+    // =====================
+    // Robust storage helpers
+    // =====================
+    function safeParse(key, fallback){
+      try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback } catch(e){ console.warn('Storage parse failed for', key, e); return fallback }
+    }
+    function safeSet(key, val){
+      try { localStorage.setItem(key, JSON.stringify(val)) } catch(e){ console.warn('Storage save failed for', key, e); pushNotice('warn', 'Storage is full or blocked. Some settings may not persist.'); }
+    }
+
     // CSV sources — persisted in localStorage
-    let CSV_SOURCES = JSON.parse(localStorage.getItem('csv_sources') || '[]');
+    let CSV_SOURCES = safeParse('csv_sources', []);
 
     // Scoring weights
     const scoreWeights = { life: .35, quality: .25, compliance:.20, behavior:.15, geo:.05 };
@@ -137,7 +92,7 @@
     // =====================
     const state = {
       region: localStorage.getItem('region') || CONFIG.DEFAULT_REGION,
-      items: JSON.parse(localStorage.getItem('opportunities') || '[]'),
+      items: safeParse('opportunities', []),
       isScanning: false,
       apiStatus: { ok:false },
       filters: { source:'all', priority:'all', sort:'score_desc', search:'' },
@@ -145,39 +100,47 @@
       notices: [],
       connectedCount: 0,
       lastScanTime: localStorage.getItem('lastScanTime') || null,
+      hasRendered: false,
+      abortController: null,
     };
 
-    // Save state to localStorage
+    // Persist important fields
     const saveState = () => {
       localStorage.setItem('region', state.region);
-      localStorage.setItem('opportunities', JSON.stringify(state.items));
-      localStorage.setItem('csv_sources', JSON.stringify(CSV_SOURCES));
-      localStorage.setItem('lastScanTime', state.lastScanTime);
+      safeSet('opportunities', state.items);
+      safeSet('csv_sources', CSV_SOURCES);
+      localStorage.setItem('lastScanTime', state.lastScanTime || '');
     };
 
     // =====================
-    // Helpers
+    // Helpers & sanitizers
     // =====================
-    const $ = (sel, root = document) => root.querySelector(sel);
+    const $  = (sel, root = document) => root.querySelector(sel);
     const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
     const fmtDate = (d) => new Date(d).toLocaleDateString();
     const fmtTime = (d) => new Date(d).toLocaleTimeString();
-    
+
+    const escapeHTML = (s='') => String(s)
+      .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+      .replaceAll('"','&quot;').replaceAll("'",'&#39;');
+
     const pushNotice = (type, msg) => { 
-      state.notices.unshift({
-        id: Date.now() + Math.random(), 
-        type, 
-        msg, 
-        at: new Date()
-      }); 
+      state.notices.unshift({ id: Date.now() + Math.random(), type, msg, at: new Date() });
       state.notices = state.notices.slice(0, 5); 
       render(); 
     };
-    
+
+    // Enhanced deduplication logic (case/whitespace/suffix-insensitive)
     const dedupe = (arr) => {
       const map = new Map();
+      const normalize = (str) => (str || '')
+        .toLowerCase()
+        .replace(/[,.]/g, '')
+        .replace(/\s+/g, ' ')
+        .replace(/\s+(llc|inc|corp)$/, '')
+        .trim();
       for (const o of arr) {
-        const key = (o.name||'').toLowerCase().trim() + '|' + (o.location||'').slice(0,20);
+        const key = normalize(o.name) + '|' + normalize(o.location).slice(0, 25);
         if (!map.has(key)) map.set(key, o);
       }
       return [...map.values()];
@@ -185,8 +148,6 @@
 
     function calculateScore(lead) {
       let s = 0;
-      
-      // Life Event Triggers (35%)
       const tr = lead.triggers || []; 
       let ts = 0;
       if(tr.includes('business_formation') || tr.includes('new_registration') || tr.includes('public_record')) ts += 50;
@@ -198,29 +159,16 @@
       if(tr.includes('event_attendance')) ts += 30;
       s += Math.min(ts, 100) * scoreWeights.life;
 
-      // Data Quality (25%)
-      const qScore = {
-        eventbrite: 90, places: 80, ticketmaster: 85, seatgeek: 85, 
-        yelp: 88, lapermits: 82, lacity: 85, csv: 70, demo: 75
-      }[lead.apiSource] || 60;
-      
+      const qScore = { eventbrite: 90, places: 80, ticketmaster: 85, seatgeek: 85, yelp: 88, lapermits: 82, lacity: 85, csv: 70, demo: 75 }[lead.apiSource] || 60;
       let dq = qScore; 
       const ageH = Math.abs(Date.now() - new Date(lead.capturedAt || Date.now())) / 3600000; 
-      if(ageH <= 1) dq += 10; 
-      else if(ageH <= 24) dq += 5; 
+      if(ageH <= 1) dq += 10; else if(ageH <= 24) dq += 5; 
       s += Math.min(dq, 100) * scoreWeights.quality;
 
-      // Compliance Status (20%)
-      const comp = { 
-        explicit_optin: 100, 
-        public_event_signup: 80, 
-        business_public_record: 75 
-      }[lead.consentStatus] || 20; 
+      const comp = { explicit_optin: 100, public_event_signup: 80, business_public_record: 75 }[lead.consentStatus] || 20; 
       s += comp * scoreWeights.compliance;
 
-      // Behavioral Signals (15%)
-      const bh = lead.behaviors || []; 
-      let bs = 0; 
+      const bh = lead.behaviors || []; let bs = 0; 
       if(bh.includes('event_attendance')) bs += 40; 
       if(bh.includes('new_opening')) bs += 45; 
       if(bh.includes('construction_permit')) bs += 35; 
@@ -228,262 +176,198 @@
       if(bh.includes('form_download')) bs += 30; 
       s += Math.min(bs, 100) * scoreWeights.behavior;
 
-      // Geographic Relevance (5%)
-      const dist = lead.distance ?? 15; 
-      let gs = 50; 
-      if(dist <= 5) gs = 100; 
-      else if(dist <= 10) gs = 80; 
-      else if(dist <= 25) gs = 60; 
+      const dist = lead.distance ?? 15; let gs = 50; 
+      if(dist <= 5) gs = 100; else if(dist <= 10) gs = 80; else if(dist <= 25) gs = 60; 
       s += gs * scoreWeights.geo;
-      
+
       return Math.round(Math.min(s, 100));
     }
-
-    function priorityFromScore(s) { 
-      return s >= 80 ? 'High' : s >= 60 ? 'Medium' : 'Low'; 
-    }
+    const priorityFromScore = (s) => (s >= 80 ? 'High' : s >= 60 ? 'Medium' : 'Low');
 
     // =====================
-    // API layer with robust error handling
+    // API layer with robust error handling + cancel
     // =====================
     async function fetchConfig() {
       try {
         if (state.demo) {
-          // Simulate API connections for demo
-          state.apiStatus = {
-            ok: true,
-            places: true,
-            eventbrite: true,
-            yelp: true,
-            lapermits: true,
-            lacity: true,
-            ticketmaster: false,
-            seatgeek: false
-          };
+          state.apiStatus = { ok: true, places: true, eventbrite: true, yelp: true, lapermits: true, lacity: true, ticketmaster: false, seatgeek: false };
           state.connectedCount = 5;
-          pushNotice('info', 'Demo mode active - showing simulated API connections.');
           return;
         }
-
         const r = await fetch('/.netlify/functions/config');
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        
-        const j = await r.json();
+        const j = await r.json().catch(() => ({}));
         state.apiStatus = j; 
         state.apiStatus.ok = true;
-        
-        // Count connected APIs
         const keys = ['places','eventbrite','ticketmaster','seatgeek','yelp'];
-        state.connectedCount = keys.filter(k => !!j[k]).length + 2; // +2 for LA public datasets
-        
-        pushNotice('success', `API configuration loaded - ${state.connectedCount} sources available.`);
+        const connectedKeyBased = keys.filter(k => !!j[k]).length;
+        const keyless = API_SOURCES.filter(s => !s.needsKey).length;
+        state.connectedCount = connectedKeyBased + keyless;
+        if (state.hasRendered) pushNotice('success', `API configuration loaded — ${state.connectedCount} sources available.`);
       } catch(e) { 
         console.error('Config fetch failed:', e);
         state.demo = true; 
         state.apiStatus = { ok: false };
         state.connectedCount = 0;
-        pushNotice('warn', 'API configuration unavailable - running in demo mode.'); 
+        if (state.hasRendered) pushNotice('warn', 'API configuration unavailable — running in demo mode.');
       }
     }
 
     async function callFn(endpoint, params = {}) {
-      if (state.demo) {
-        // Return empty for demo mode API calls
-        return [];
-      }
-
+      if (state.demo) return [];
       const qs = new URLSearchParams({ region: state.region, ...params }).toString();
       const url = '/.netlify/functions/' + endpoint + '?' + qs;
-      
       try {
-        const r = await fetch(url);
-        if (!r.ok) {
-          console.error(`API call failed: ${endpoint} - HTTP ${r.status}`);
-          return [];
-        }
-        
-        const j = await r.json();
+        const r = await fetch(url, { signal: state.abortController?.signal });
+        if (!r.ok) throw new Error(`API ${endpoint} failed: HTTP ${r.status}`);
+        const j = await r.json().catch(() => ({ ok:false, items:[] }));
         return j.ok ? (j.items || []) : [];
       } catch(e) { 
+        if (e.name === 'AbortError') throw e; // bubble up cancel
         console.error(`Network error calling ${endpoint}:`, e);
-        return []; 
+        throw e; 
       }
     }
 
     async function runScan() {
+      // If already scanning, treat as cancel
+      if (state.isScanning) {
+        try { state.abortController?.abort(); } catch(_){}
+        return;
+      }
+
+      state.abortController = new AbortController();
       state.isScanning = true; 
       state.items = []; 
+      state.notices = []; 
       render();
 
-      // Always show demo data in demo mode or if no APIs are available
+      // Demo fallback or no APIs
       if (state.demo || state.connectedCount === 0) {
-        await new Promise(r => setTimeout(r, 1500)); // Simulate API delay
-        
+        await new Promise(r => setTimeout(r, 900));
         const demoData = getDemoData();
-        state.items = demoData.map(x => ({ 
-          ...x, 
-          score: calculateScore(x), 
-          priority: priorityFromScore(calculateScore(x)) 
-        }));
-        
+        state.items = demoData.map(x => { const sc = calculateScore(x); return { ...x, score: sc, priority: priorityFromScore(sc) } });
         state.isScanning = false; 
         state.lastScanTime = new Date().toISOString();
         saveState();
-        
-        const msg = state.demo ? 
-          `Found ${state.items.length} demo opportunities. Deploy to Netlify for live data.` :
-          `Found ${state.items.length} demo opportunities. Configure API keys for live data.`;
+        const msg = state.demo ? `Found ${state.items.length} fresh demo opportunities for ${new Date().toLocaleDateString()}. Deploy to Netlify for live data.` : `Found ${state.items.length} fresh demo opportunities. Configure API keys for live data.`;
         pushNotice('success', msg); 
         render(); 
         return;
       }
 
-      // Live API scanning
+      let allItems = [];
       const status = state.apiStatus || {};
       const liveSources = API_SOURCES.filter(s => !s.needsKey || status[s.id]);
-
-      const apiPromises = liveSources.map(s => 
-        callFn(s.endpoint).catch(err => {
-          console.error(`Failed to call ${s.endpoint}:`, err);
-          return [];
-        })
-      );
-
-      const csvPromises = CSV_SOURCES.map(([url, label]) => 
-        callFn('sheet-import', { url, label }).catch(err => {
-          console.error(`Failed to import CSV ${label}:`, err);
-          pushNotice('warn', `Failed to import CSV: ${label}`);
-          return [];
-        })
-      );
+      pushNotice('info', `Starting scan for ${state.region}...`);
 
       try {
-        const results = await Promise.allSettled([...apiPromises, ...csvPromises]);
-        const flattened = results.flatMap((res, i) => {
-          if (res.status === 'fulfilled') {
-            return res.value;
-          } else {
-            const sourceName = i < liveSources.length ? 
-              liveSources[i].label : 
-              CSV_SOURCES[i - liveSources.length][1];
-            console.error(`Source ${sourceName} failed:`, res.reason);
-            return [];
-          }
-        });
-
-        let merged = dedupe(flattened);
-
-        // If no live data found, show demo data with warning
-        if (merged.length === 0) {
-          pushNotice('warn', 'No live data found - showing demo opportunities.');
-          merged = getDemoData();
+        for (const source of liveSources) {
+          pushNotice('info', `Scanning ${source.label}...`);
+          try { const items = await callFn(source.endpoint); allItems.push(...items); }
+          catch (err) { if (err.name !== 'AbortError'){ pushNotice('warn', `Could not fetch leads from ${source.label}.`); } else { throw err; } }
         }
 
-        // Score and prioritize
-        merged = merged.map(it => { 
-          const sc = calculateScore(it); 
-          return { ...it, score: sc, priority: priorityFromScore(sc) }; 
-        });
+        for (const [url, label] of CSV_SOURCES) {
+          pushNotice('info', `Importing from ${escapeHTML(label)}...`);
+          try { const items = await callFn('sheet-import', { url, label }); allItems.push(...items); }
+          catch (err) { if (err.name !== 'AbortError'){ pushNotice('warn', `Failed to import CSV: ${escapeHTML(label)}`); } else { throw err; } }
+        }
 
+        let merged = dedupe(allItems);
+        if (merged.length === 0) { pushNotice('warn', 'No live data found — showing fresh demo opportunities as a fallback.'); merged = getDemoData(); }
+        merged = merged.map(it => { const sc = calculateScore(it); return { ...it, score: sc, priority: priorityFromScore(sc) }; });
         state.items = merged.sort((a, b) => b.score - a.score);
         state.lastScanTime = new Date().toISOString();
         saveState();
-        
         const successfulSources = liveSources.length + CSV_SOURCES.length;
-        pushNotice('success', `Found ${state.items.length} opportunities from ${successfulSources} sources.`);
+        pushNotice('success', `Scan complete! Found ${state.items.length} opportunities from ${successfulSources} sources.`);
       } catch (e) {
-        console.error('Scan failed:', e);
-        pushNotice('danger', 'Scan failed - please try again.');
-        
-        // Show demo data as fallback
-        const demoData = getDemoData();
-        state.items = demoData.map(x => ({ 
-          ...x, 
-          score: calculateScore(x), 
-          priority: priorityFromScore(calculateScore(x)) 
-        }));
+        if (e.name === 'AbortError') { pushNotice('warn', 'Scan cancelled.'); }
+        else { pushNotice('danger', 'Scan failed. Check console for details.'); }
+      } finally {
+        state.isScanning = false;
+        state.abortController = null;
+        render();
       }
-
-      state.isScanning = false;
-      render();
     }
 
+    // =====================
+    // Demo data (seeded, daily fresh)
+    // =====================
     function getDemoData() {
-      return [
-        {
-          id: 'demo_1',
-          name: 'Small Business Growth Summit',
-          apiSource: 'demo',
-          source: 'Demo Event',
-          location: `${state.region}, CA`,
-          triggers: ['event_attendance', 'business_formation'],
-          consentStatus: 'public_event_signup',
-          behaviors: ['event_attendance'],
-          distance: Math.random() * 15,
-          capturedAt: new Date().toISOString(),
-          contact: { email: 'organizer@businesssummit.com', phone: '(714) 555-0123' },
-          venue: 'Convention Center',
-          url: '#demo',
-          categories: 'Business, Networking',
-          eventDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: 'demo_2',
-          name: `${state.region} Professional Services LLC`,
-          apiSource: 'demo',
-          source: 'Demo Business',
-          location: `${state.region}, CA`,
-          triggers: ['business_formation', 'new_registration'],
-          consentStatus: 'business_public_record',
-          behaviors: ['website_visit', 'new_opening'],
-          distance: Math.random() * 12,
-          capturedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          contact: { email: 'info@profservices.com', phone: '(714) 555-0345' },
-          venue: 'Business District',
-          extra: { naics: 'Professional, Scientific, and Technical Services' }
-        },
-        {
-          id: 'demo_3',
-          name: 'Artisan Coffee Roastery & Café',
-          apiSource: 'demo',
-          source: 'Demo Business',
-          location: `${state.region}, CA`,
-          triggers: ['new_business'],
-          consentStatus: 'business_public_record',
-          behaviors: ['new_opening'],
-          distance: Math.random() * 8,
-          capturedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-          contact: { email: 'hello@artisancoffee.com', phone: '(714) 555-0987' },
-          venue: 'Main Street District',
-          categories: 'Coffee, Food & Beverage',
-          rating: 4.8,
-          reviewCount: 24
-        },
-        {
-          id: 'demo_4',
-          name: 'Tech Innovation Meetup',
-          apiSource: 'demo',
-          source: 'Demo Event',
-          location: `${state.region}, CA`,
-          triggers: ['event_attendance'],
-          consentStatus: 'public_event_signup',
-          behaviors: ['event_attendance'],
-          distance: Math.random() * 20,
-          capturedAt: new Date().toISOString(),
-          contact: { email: 'events@techinnovation.com' },
-          venue: 'Innovation Hub',
-          eventDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-        }
+      const today = new Date().toDateString();
+      const seed = hashCode(today + state.region);
+      const numOpps = 3 + (seed % 6);
+      const opportunities = [];
+      const businessTypes = [
+        'Business Growth Summit', 'Professional Services', 'Coffee Roastery', 'Tech Innovation Meetup',
+        'Fitness Studio', 'Marketing Agency', 'Real Estate Group', 'Investment Club',
+        'Dental Practice', 'Law Firm', 'Accounting Services', 'Consulting Group',
+        'Medical Clinic', 'Veterinary Hospital', 'Auto Repair Shop', 'Restaurant',
+        'Beauty Salon', 'Photography Studio', 'Wedding Planning', 'Catering Company',
+        'Construction Company', 'Landscaping Service', 'Home Security', 'Solar Installation',
+        'Interior Design', 'Architecture Firm', 'Engineering Services', 'IT Support',
+        'Digital Marketing', 'Web Development', 'App Development', 'E-commerce Store'
       ];
+      const venues = ['Convention Center','Business District','Main Street','Innovation Hub','Community Center','Hotel Conference Room','Corporate Plaza','Shopping Center','Industrial Park','Medical Center','Financial District','Tech Campus','Downtown Core','Suburban Plaza','Business Park','Professional Building'];
+      const modifiers = ['New','Modern','Premier','Elite','Advanced','Innovative','Professional','Executive','Luxury','Premium','Boutique','Artisan','Family','Local'];
+      const events = ['Summit','Conference','Workshop','Seminar','Networking Event','Grand Opening','Launch Party','Training Session','Meetup','Expo','Fair','Showcase'];
+      for (let i = 0; i < numOpps; i++) {
+        const isEvent = (seed + i) % 3 === 0;
+        const businessIndex = (seed + i) % businessTypes.length;
+        const modifierIndex = (seed + i * 2) % modifiers.length;
+        const venueIndex = (seed + i * 3) % venues.length;
+        let name, triggers, behaviors, consentStatus;
+        if (isEvent) {
+          const eventIndex = (seed + i) % events.length;
+          name = `${state.region} ${businessTypes[businessIndex]} ${events[eventIndex]}`;
+          triggers = ['event_attendance']; behaviors = ['event_attendance']; consentStatus = 'public_event_signup';
+        } else {
+          name = `${modifiers[modifierIndex]} ${businessTypes[businessIndex]}`;
+          if ((seed + i) % 4 === 0) name += ' LLC'; else if ((seed + i) % 4 === 1) name += ' Inc'; else if ((seed + i) % 4 === 2) name += ' & Associates';
+          triggers = ['business_formation','new_registration']; behaviors = ['new_opening','website_visit']; consentStatus = 'business_public_record';
+          if ((seed + i) % 5 === 0) triggers.push('new_business'); if ((seed + i) % 7 === 0) triggers.push('executive_change');
+        }
+        const emailDomains = ['gmail.com','yahoo.com','company.com','business.net','startup.io'];
+        const emailName = name.toLowerCase().replace(/[^a-z]/g, '').slice(0, 8);
+        const emailDomain = emailDomains[(seed + i) % emailDomains.length];
+        const email = `${emailName}@${emailDomain}`;
+        const areaCode = state.region.includes('Orange') ? '714' : state.region.includes('Los Angeles') ? '323' : state.region.includes('San Diego') ? '619' : '916';
+        const phone = `(${areaCode}) ${String(555 + (seed + i) % 400).padStart(3, '0')}-${String(1000 + (seed + i * 7) % 9000).padStart(4, '0')}`;
+        const hoursAgo = ((seed + i) % 48) + 1; 
+        const capturedAt = new Date(Date.now() - hoursAgo * 60 * 60 * 1000).toISOString();
+        const maxDistance = state.region.includes('Orange') ? 25 : state.region.includes('Los Angeles') ? 40 : 35;
+        const distance = Math.round(((seed + i * 3) % 100) / 100 * maxDistance * 10) / 10;
+        const opportunity = {
+          id: `fresh_${today.replace(/\s/g, '_')}_${i}`,
+          name, apiSource: 'demo', source: 'Fresh Demo', location: `${state.region}, CA`, triggers, consentStatus, behaviors,
+          distance, capturedAt,
+          contact: { email, phone: (seed + i) % 3 === 0 ? phone : undefined },
+          venue: venues[venueIndex]
+        };
+        if ((seed + i) % 4 === 0) {
+          opportunity.extra = { naics: [ 'Professional, Scientific, and Technical Services','Health Care and Social Assistance','Retail Trade','Accommodation and Food Services','Construction','Information Technology','Finance and Insurance' ][(seed + i) % 7] };
+        }
+        if (isEvent) {
+          opportunity.eventDate = new Date(Date.now() + ((seed + i) % 30 + 1) * 86400000).toISOString();
+          opportunity.categories = [ 'Business, Networking','Technology, Innovation','Health, Wellness','Finance, Investment','Marketing, Sales','Real Estate, Property' ][(seed + i) % 6];
+        } else {
+          if ((seed + i) % 5 === 0) { opportunity.rating = 3.5 + ((seed + i) % 15) / 10; opportunity.reviewCount = 5 + ((seed + i) % 50); }
+        }
+        opportunities.push(opportunity);
+      }
+      return opportunities;
     }
+    function hashCode(str) { let hash = 0; for (let i = 0; i < str.length; i++) { const char = str.charCodeAt(i); hash = ((hash << 5) - hash) + char; hash |= 0 } return Math.abs(hash) }
 
     // =====================
     // UI builders
     // =====================
     function buildHeader() {
       const connected = state.connectedCount;
-      const scanText = state.isScanning ? 'Scanning…' : `Scan ${state.region}`;
-      
+      const scanText = state.isScanning ? 'Cancel Scan' : `Scan ${state.region}`;
+      const liveBadge = state.demo ? '<span class="badge" style="color:#7c3aed;background:#f3e8ff;border-color:#d8b4fe">Demo</span>' : '<span class="badge" style="color:#dc2626;background:#fef2f2;border-color:#fecaca">🔴 LIVE DATA</span>';
       return `
         <header class="sticky top-0 z-30">
           <div class="glass shadow-soft border-b" style="border-color: rgba(255,255,255,0.4);">
@@ -492,17 +376,18 @@
                 <div class="w-8 h-8 rounded-xl" style="background: linear-gradient(135deg, #6366f1, #4f46e5);"></div>
                 <div>
                   <h1 class="text-lg md:text-xl font-semibold text-ink-900">${CONFIG.APP_NAME}</h1>
-                  <p class="text-ink-500 text-xs">for ${CONFIG.AGENT_NAME}</p>
+                  <p class="text-ink-500 text-xs">for ${escapeHTML(CONFIG.AGENT_NAME)}</p>
                 </div>
               </div>
               <div class="flex items-center gap-3">
                 <div class="hidden md:flex items-center gap-2 text-xs">
                   <span class="badge" style="color:#0f766e;background:#ecfdf5;border-color:#99f6e4">${connected} sources</span>
-                  ${state.demo ? '<span class="badge" style="color:#7c3aed;background:#f3e8ff;border-color:#d8b4fe">Demo</span>' : ''}
+                  ${liveBadge}
                   ${state.lastScanTime ? `<span class="badge" style="color:#6b7280;background:#f9fafb;border-color:#e5e7eb">Last: ${fmtTime(state.lastScanTime)}</span>` : ''}
+                  <span class="badge" style="color:#6b7280;background:#f9fafb;border-color:#e5e7eb">${CONFIG.VERSION}</span>
                 </div>
-                <button id="scanBtn" class="btn btn-cta ${state.isScanning ? 'loading' : ''}" ${state.isScanning ? 'disabled' : ''}>${scanText}</button>
-                <button id="exportBtn" class="btn btn-primary" ${state.items.length ? '' : 'disabled'}>Export CSV</button>
+                <button id="scanBtn" class="btn btn-cta ${state.isScanning ? '' : ''}">${scanText}</button>
+                <button id="exportBtn" class="btn btn-primary" ${state.items.length && !state.isScanning ? '' : 'disabled'}>Export CSV</button>
               </div>
             </div>
           </div>
@@ -511,29 +396,19 @@
 
     function buildNotices() {
       if(!state.notices.length) return '';
-      
-      const typeStyles = {
-        success: 'border-green-200 bg-green-50 text-green-800',
-        info: 'border-blue-200 bg-blue-50 text-blue-800',
-        warn: 'border-yellow-200 bg-yellow-50 text-yellow-800',
-        danger: 'border-red-200 bg-red-50 text-red-800'
-      };
-      
-      return `<div class="max-w-7xl mx-auto px-6 mt-4 space-y-2">${state.notices.map(n => `
-        <div class="card px-4 py-3 border ${typeStyles[n.type] || typeStyles.info}">
+      const typeStyles = { success:'border-green-200 bg-green-50 text-green-800', info:'border-blue-200 bg-blue-50 text-blue-800', warn:'border-yellow-200 bg-yellow-50 text-yellow-800', danger:'border-red-200 bg-red-50 text-red-800' };
+      return `<div class="fixed top-24 right-6 w-full max-w-sm z-50 space-y-2" aria-live="polite">${state.notices.map(n => `
+        <div class="card px-4 py-3 border ${typeStyles[n.type] || typeStyles.info} shadow-lg" role="status" style="animation: fadeOut 8s forwards;">
           <div class="flex justify-between items-center text-sm">
-            <span>${n.msg}</span>
-            <span class="text-ink-500 text-xs">${n.at.toLocaleTimeString()}</span>
+            <span>${escapeHTML(n.msg)}</span>
+            <span class="text-ink-400 text-xs">${n.at.toLocaleTimeString()}</span>
           </div>
         </div>`).join('')}</div>`;
     }
 
     function buildStats() {
       const high = state.items.filter(i => i.priority === 'High').length;
-      const newBiz = state.items.filter(i => 
-        (i.triggers || []).some(t => ['new_registration','public_record','new_business'].includes(t))
-      ).length;
-      
+      const newBiz = state.items.filter(i => (i.triggers || []).some(t => ['new_registration','public_record','new_business'].includes(t))).length;
       return `<section class="max-w-7xl mx-auto px-6 mt-6">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           ${statCard('🎯','Total Opportunities', state.items.length)}
@@ -543,7 +418,6 @@
         </div>
       </section>`;
     }
-
     const statCard = (emoji, label, val) => `
       <div class="card p-5">
         <div class="flex items-center gap-3">
@@ -556,24 +430,13 @@
       </div>`;
 
     function buildControls() {
-      const srcOpts = [
-        { id: 'all', label: 'All Sources' },
-        ...API_SOURCES.map(s => ({ id: s.id, label: s.label })),
-        ...(CSV_SOURCES.length > 0 ? [{ id: 'csv', label: 'CSV Imports' }] : []),
-        { id: 'demo', label: 'Demo Data' }
-      ];
-      
-      const sourceOptions = srcOpts.map(opt => 
-        `<option value="${opt.id}" ${state.filters.source === opt.id ? 'selected' : ''}>${opt.label}</option>`
-      ).join('');
-      
+      const srcOpts = [ { id: 'all', label: 'All Sources' }, ...API_SOURCES.map(s => ({ id: s.id, label: s.label })), ...(CSV_SOURCES.length > 0 ? [{ id: 'csv', label: 'CSV Imports' }] : []), { id: 'demo', label: 'Demo Data' } ];
+      const sourceOptions = srcOpts.map(opt => `<option value="${opt.id}" ${state.filters.source === opt.id ? 'selected' : ''}>${opt.label}</option>`).join('');
       return `<section class="max-w-7xl mx-auto px-6 mt-6">
         <div class="card p-4 flex flex-wrap items-center gap-3">
           <div class="flex items-center gap-2">
             <label class="text-sm text-ink-600">Region</label>
-            <select id="regionSel" class="border rounded-lg px-3 py-2 text-sm">
-              ${REGIONS.map(r => `<option ${r === state.region ? 'selected' : ''}>${r}</option>`).join('')}
-            </select>
+            <select id="regionSel" class="border rounded-lg px-3 py-2 text-sm">${REGIONS.map(r => `<option ${r === state.region ? 'selected' : ''}>${r}</option>`).join('')}</select>
           </div>
           <div class="flex items-center gap-2">
             <label class="text-sm text-ink-600">Source</label>
@@ -597,7 +460,7 @@
             </select>
           </div>
           <div class="flex items-center gap-2 grow">
-            <input id="searchInput" value="${state.filters.search}" placeholder="Search names, venues…" class="w-full border rounded-lg px-3 py-2 text-sm" />
+            <input id="searchInput" value="${escapeHTML(state.filters.search)}" placeholder="Search names, venues…" class="w-full border rounded-lg px-3 py-2 text-sm" />
           </div>
           <div class="flex items-center gap-2">
             <button id="addCsvBtn" class="btn border border-ink-200">+ CSV Source</button>
@@ -609,25 +472,12 @@
 
     function buildList() {
       let items = [...state.items];
-      const f = state.filters; 
-      const q = (f.search || '').toLowerCase();
-      
-      // Apply filters
+      const f = state.filters; const q = (f.search || '').toLowerCase();
       if(f.source !== 'all') {
-        items = items.filter(i => {
-          if (f.source === 'csv') return i.apiSource === 'csv';
-          if (f.source === 'demo') return i.apiSource === 'demo';
-          return i.apiSource === f.source;
-        });
+        items = items.filter(i => { if (f.source === 'csv') return i.apiSource === 'csv'; if (f.source === 'demo') return i.apiSource === 'demo'; return i.apiSource === f.source; });
       }
       if(f.priority !== 'all') items = items.filter(i => i.priority === f.priority);
-      if(q) items = items.filter(i => 
-        (i.name || '').toLowerCase().includes(q) || 
-        (i.venue || '').toLowerCase().includes(q) ||
-        (i.location || '').toLowerCase().includes(q)
-      );
-      
-      // Apply sorting
+      if(q) items = items.filter(i => (i.name || '').toLowerCase().includes(q) || (i.venue || '').toLowerCase().includes(q) || (i.location || '').toLowerCase().includes(q));
       if(f.sort === 'name_asc') items.sort((a,b) => (a.name || '').localeCompare(b.name || ''));
       if(f.sort === 'date_desc') items.sort((a,b) => new Date(b.capturedAt) - new Date(a.capturedAt));
       if(f.sort === 'score_desc') items.sort((a,b) => b.score - a.score);
@@ -637,118 +487,63 @@
           <div class="card p-12 text-center">
             <div class="text-5xl text-ink-300 mb-3">🎯</div>
             <div class="text-lg font-semibold">No results found</div>
-            <div class="text-ink-500 mb-4">
-              ${state.items.length === 0 ? 
-                'Try scanning for opportunities in your region.' : 
-                'Try adjusting your filters or search terms.'}
-            </div>
-            <div class="mt-5">
-              <button id="scanEmpty" class="btn btn-cta">Scan ${state.region}</button>
-            </div>
+            <div class="text-ink-500 mb-4">${state.items.length === 0 ? 'Try scanning for opportunities in your region.' : 'Try adjusting your filters or search terms.'}</div>
+            <div class="mt-5"><button id="scanEmpty" class="btn btn-cta">Scan ${escapeHTML(state.region)}</button></div>
           </div>
         </section>`;
       }
 
-      return `<section class="max-w-7xl mx-auto px-6 mt-6">
-        <div class="mb-4 text-sm text-ink-600">
-          Showing ${items.length} of ${state.items.length} opportunities
-        </div>
+      return `<section class="max-w-7xl mx-auto px-6 mt-6" data-list>
+        <div class="mb-4 text-sm text-ink-600">Showing ${items.length} of ${state.items.length} opportunities</div>
         <div class="space-y-4">${items.map(buildCard).join('')}</div>
       </section>`;
     }
 
     const chip = (txt, tone='gray') => {
-      const styles = {
-        red: 'text-red-700 border-red-200 bg-red-50',
-        green: 'text-emerald-700 border-emerald-200 bg-emerald-50', 
-        blue: 'text-blue-700 border-blue-200 bg-blue-50',
-        gray: 'text-ink-600 border-ink-200 bg-ink-50'
-      };
-      return `<span class="badge ${styles[tone] || styles.gray}">${txt}</span>`;
+      const styles = { red:'text-red-700 border-red-200 bg-red-50', green:'text-emerald-700 border-emerald-200 bg-emerald-50', blue:'text-blue-700 border-blue-200 bg-blue-50', gray:'text-ink-600 border-ink-200 bg-ink-50' };
+      return `<span class="badge ${styles[tone] || styles.gray}">${escapeHTML(txt)}</span>`;
     };
 
     function buildCard(o) {
       const scoreTone = o.score >= 80 ? 'green' : o.score >= 60 ? 'blue' : 'gray';
       const priorityTone = o.priority === 'High' ? 'red' : o.priority === 'Medium' ? 'blue' : 'gray';
-      
-      // Build contact info display
       let contactDisplay = 'N/A';
-      if (o.contact?.phone && o.contact?.email) {
-        contactDisplay = `${o.contact.phone} • ${o.contact.email}`;
-      } else if (o.contact?.phone) {
-        contactDisplay = o.contact.phone;
-      } else if (o.contact?.email) {
-        contactDisplay = o.contact.email;
-      }
-      
+      if (o.contact?.phone && o.contact?.email) contactDisplay = `${escapeHTML(o.contact.phone)} • ${escapeHTML(o.contact.email)}`;
+      else if (o.contact?.phone) contactDisplay = escapeHTML(o.contact.phone);
+      else if (o.contact?.email) contactDisplay = escapeHTML(o.contact.email);
+      const nameSafe = escapeHTML(o.name || '—');
+      const srcSafe = escapeHTML(o.source || (o.apiSource ? String(o.apiSource).toUpperCase() : 'Source'));
+      const locSafe = escapeHTML(o.location || 'Not specified');
+      const venueSafe = escapeHTML(o.venue || '');
+      const industrySafe = escapeHTML(o.extra?.naics || '');
+
       return `<article class="card p-6 hover:shadow-soft transition-shadow">
         <div class="flex items-start justify-between gap-6">
           <div class="min-w-0 grow">
             <div class="flex flex-wrap items-center gap-2 mb-3">
-              <h3 class="text-lg font-semibold text-ink-900 truncate">${o.name || '—'}</h3>
+              <h3 class="text-lg font-semibold text-ink-900 truncate">${nameSafe}</h3>
               ${chip(o.priority, priorityTone)}
-              ${chip(o.source || o.apiSource?.toUpperCase() || 'Source')}
+              ${chip(srcSafe)}
               ${o.apiSource === 'demo' ? chip('DEMO', 'blue') : ''}
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
-              <div>
-                <div class="text-ink-500">Contact</div>
-                <div class="font-medium truncate">${contactDisplay}</div>
-              </div>
-              <div>
-                <div class="text-ink-500">Location</div>
-                <div class="font-medium truncate">${o.location || 'Not specified'}</div>
-              </div>
-              <div>
-                <div class="text-ink-500">Distance</div>
-                <div class="font-medium">${(o.distance || 0).toFixed(1)} mi</div>
-              </div>
-              ${o.extra?.naics ? `
-                <div>
-                  <div class="text-ink-500">Industry</div>
-                  <div class="font-medium truncate">${o.extra.naics}</div>
-                </div>` : ''}
-              ${o.venue ? `
-                <div>
-                  <div class="text-ink-500">Venue</div>
-                  <div class="font-medium truncate">${o.venue}</div>
-                </div>` : ''}
-              <div>
-                <div class="text-ink-500">Captured</div>
-                <div class="font-medium">${fmtDate(o.capturedAt || Date.now())}</div>
-              </div>
+              <div><div class="text-ink-500">Contact</div><div class="font-medium truncate">${contactDisplay}</div></div>
+              <div><div class="text-ink-500">Location</div><div class="font-medium truncate">${locSafe}</div></div>
+              <div><div class="text-ink-500">Distance</div><div class="font-medium">${Number(o.distance || 0).toFixed(1)} mi</div></div>
+              ${industrySafe ? `<div><div class="text-ink-500">Industry</div><div class="font-medium truncate">${industrySafe}</div></div>` : ''}
+              ${o.venue ? `<div><div class="text-ink-500">Venue</div><div class="font-medium truncate">${venueSafe}</div></div>` : ''}
+              <div><div class="text-ink-500">Captured</div><div class="font-medium">${fmtDate(o.capturedAt || Date.now())}</div></div>
             </div>
-            
-            ${(o.triggers && o.triggers.length > 0) ? `
-              <div class="mb-4">
-                <div class="text-ink-500 text-sm mb-1">Triggers</div>
-                <div class="flex flex-wrap gap-1">
-                  ${o.triggers.map(t => chip(t.replace('_', ' '), 'blue')).join('')}
-                </div>
-              </div>` : ''}
-            
+            ${(o.triggers && o.triggers.length > 0) ? `<div class="mb-4"><div class="text-ink-500 text-sm mb-1">Triggers</div><div class="flex flex-wrap gap-1">${o.triggers.map(t => chip(String(t).replace('_',' '), 'blue')).join('')}</div></div>` : ''}
             <div class="flex flex-wrap gap-2">
-              ${o.contact?.email ? `
-                <a class="btn border hover:bg-ink-50" href="mailto:${o.contact.email}?subject=Introduction - ${CONFIG.AGENT_NAME}, New York Life&body=${encodeURIComponent(`Hello,\n\nI'm ${CONFIG.AGENT_NAME}, a New York Life agent in ${state.region}. I help families and businesses with financial protection and planning.\n\nI'd love to connect and see if I can be a resource for you.\n\nBest regards,\n${CONFIG.AGENT_NAME}\n${CONFIG.AGENT_LICENSE}\n${CONFIG.AGENT_EMAIL}`)}">
-                  📧 Email
-                </a>` : ''}
-              ${o.contact?.phone ? `
-                <a class="btn border hover:bg-ink-50" href="tel:${o.contact.phone}">
-                  📞 Call
-                </a>` : ''}
-              ${(o.url && o.url !== '#' && o.url !== '#demo') ? `
-                <a class="btn border hover:bg-ink-50" href="${o.url}" target="_blank" rel="noopener">
-                  🔗 Details
-                </a>` : ''}
-              <a class="btn border hover:bg-ink-50" target="_blank" rel="noopener" href="https://www.google.com/search?q=${encodeURIComponent((o.name || '') + ' ' + (o.location || ''))}">
-                🔍 Research
-              </a>
+              ${o.contact?.email ? `<a class="btn border hover:bg-ink-50" href="mailto:${encodeURIComponent(o.contact.email)}?subject=${encodeURIComponent(`Introduction — ${CONFIG.AGENT_NAME}, New York Life`)}&body=${encodeURIComponent(`Hello,\n\nI'm ${CONFIG.AGENT_NAME}, a New York Life agent in ${state.region}. I help families and businesses with financial protection and planning.\n\nI'd love to connect and see if I can be a resource for you.\n\nBest regards,\n${CONFIG.AGENT_NAME}\n${CONFIG.AGENT_LICENSE}\n${CONFIG.AGENT_EMAIL}`)}">📧 Email</a>` : ''}
+              ${o.contact?.phone ? `<a class="btn border hover:bg-ink-50" href="tel:${encodeURIComponent(o.contact.phone)}">📞 Call</a>` : ''}
+              ${(o.url && o.url !== '#' && o.url !== '#demo') ? `<a class="btn border hover:bg-ink-50" href="${escapeHTML(o.url)}" target="_blank" rel="noopener">🔗 Details</a>` : ''}
+              <a class="btn border hover:bg-ink-50" target="_blank" rel="noopener" href="https://www.google.com/search?q=${encodeURIComponent((o.name || '') + ' ' + (o.location || ''))}">🔍 Research</a>
             </div>
           </div>
           <div class="text-center shrink-0">
-            <div class="px-4 py-2 rounded-xl border text-2xl font-bold ${getScoreStyles(scoreTone)}">
-              ${o.score ?? '—'}
-            </div>
+            <div class="px-4 py-2 rounded-xl border text-2xl font-bold ${getScoreStyles(scoreTone)}">${o.score ?? '—'}</div>
             <div class="text-xs text-ink-500 mt-1">AI Score</div>
           </div>
         </div>
@@ -756,49 +551,28 @@
     }
 
     function getScoreStyles(tone) {
-      const styles = {
-        green: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-        blue: 'border-indigo-200 bg-indigo-50 text-indigo-700',
-        gray: 'border-ink-200 bg-ink-50 text-ink-700'
-      };
+      const styles = { green:'border-emerald-200 bg-emerald-50 text-emerald-700', blue:'border-indigo-200 bg-indigo-50 text-indigo-700', gray:'border-ink-200 bg-ink-50 text-ink-700' };
       return styles[tone] || styles.gray;
     }
 
     function buildFooter() {
-      return `<footer class="max-w-7xl mx-auto px-6 py-10 text-center text-xs text-ink-500">
-        © ${new Date().getFullYear()} New York Life Insurance Company. For informational purposes only; not an offer or solicitation. 
-        ${CONFIG.AGENT_NAME} — ${CONFIG.AGENT_LICENSE}. Contact: ${CONFIG.AGENT_EMAIL}.
-      </footer>`;
+      return `<footer class="max-w-7xl mx-auto px-6 py-10 text-center text-xs text-ink-500">© ${new Date().getFullYear()} New York Life Insurance Company. For informational purposes only; not an offer or solicitation. ${escapeHTML(CONFIG.AGENT_NAME)} — ${escapeHTML(CONFIG.AGENT_LICENSE)}. Contact: ${escapeHTML(CONFIG.AGENT_EMAIL)}.</footer>`;
     }
 
     function buildSettingsModal() {
-      return `<div id="settingsModal" class="fixed inset-0 hidden items-center justify-center z-50">
+      return `<div id="settingsModal" class="fixed inset-0 hidden items-center justify-center z-50" aria-hidden="true">
         <div class="absolute inset-0 bg-black/40" id="modalBackdrop"></div>
         <div class="relative card w-full max-w-xl p-6 mx-4">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold">Add CSV Source</h3>
-            <button id="modalClose" class="text-ink-400 hover:text-ink-600">✕</button>
+            <button id="modalClose" class="text-ink-400 hover:text-ink-600" aria-label="Close">✕</button>
           </div>
-          <p class="text-sm text-ink-600 mb-4">
-            Paste a <strong>published CSV</strong> link (e.g., Google Sheets → Publish to web → CSV). 
-            Great for LA County FBN, CA SOS exports, or OC deeds.
-          </p>
+          <p class="text-sm text-ink-600 mb-4">Paste a <strong>published CSV</strong> link (e.g., Google Sheets → Publish to web → CSV). Great for LA County FBN, CA SOS exports, or OC deeds.</p>
           <div class="space-y-3">
             <input id="csvUrl" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="https://docs.google.com/.../pub?output=csv" />
             <input id="csvLabel" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Label (e.g., LA County FBN)" />
           </div>
-          ${CSV_SOURCES.length > 0 ? `
-            <div class="mt-4">
-              <div class="text-sm font-medium text-ink-700 mb-2">Current CSV Sources:</div>
-              <div class="space-y-1">
-                ${CSV_SOURCES.map(([url, label], index) => `
-                  <div class="flex items-center justify-between p-2 bg-ink-50 rounded text-sm">
-                    <span>${label}</span>
-                    <button class="text-red-600 hover:text-red-800" onclick="removeCSV(${index})">Remove</button>
-                  </div>
-                `).join('')}
-              </div>
-            </div>` : ''}
+          ${CSV_SOURCES.length > 0 ? `<div class="mt-4"><div class="text-sm font-medium text-ink-700 mb-2">Current CSV Sources:</div><div class="space-y-1">${CSV_SOURCES.map(([url, label], index) => `<div class="flex items-center justify-between p-2 bg-ink-50 rounded text-sm"><span>${escapeHTML(label)}</span><button class="text-red-600 hover:text-red-800" onclick="removeCSV(${index})">Remove</button></div>`).join('')}</div></div>` : ''}
           <div class="mt-5 flex items-center justify-end gap-3">
             <button id="csvCancel" class="btn border">Cancel</button>
             <button id="csvSave" class="btn btn-cta">Add Source</button>
@@ -808,239 +582,152 @@
     }
 
     function buildSetupModal() {
-      return `<div id="setupModal" class="fixed inset-0 hidden items-center justify-center z-50">
+      return `<div id="setupModal" class="fixed inset-0 hidden items-center justify-center z-50" aria-hidden="true">
         <div class="absolute inset-0 bg-black/40" id="setupBackdrop"></div>
         <div class="relative card w-full max-w-4xl p-6 mx-4 max-h-[90vh] overflow-y-auto">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold">API Setup & Configuration</h3>
-            <button id="setupClose" class="text-ink-400 hover:text-ink-600">✕</button>
+            <div class="flex items-center gap-3">
+              <button id="refreshApiStatusBtn" class="btn text-sm p-2 border">🔄 Refresh Status</button>
+              <button id="resetAppBtn" class="btn text-sm p-2 border">🧹 Reset App</button>
+              <button id="setupClose" class="text-ink-400 hover:text-ink-600 text-2xl" aria-label="Close">✕</button>
+            </div>
           </div>
-          
           <div class="mb-6">
             <h4 class="font-semibold mb-2">Current API Status</h4>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               ${API_SOURCES.map(api => {
-                const isConnected = state.apiStatus[api.id];
+                const isConnected = state.apiStatus[api.id] || !api.needsKey;
                 return `
                   <div class="border rounded-lg p-4 ${isConnected ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}">
                     <div class="flex items-center justify-between mb-2">
                       <span class="font-medium">${api.label}</span>
-                      <span class="badge ${isConnected ? 'text-green-700 border-green-200 bg-green-50' : 'text-red-700 border-red-200 bg-red-50'}">
-                        ${isConnected ? 'Connected' : 'Not Connected'}
-                      </span>
+                      <span class="badge ${isConnected ? 'text-green-700 bg-white' : 'text-red-700 bg-white'}">${isConnected ? 'Connected' : 'Not Connected'}</span>
                     </div>
-                    <div class="text-sm text-ink-600">
-                      ${api.needsKey ? `Environment Variable: ${api.envVar}` : 'No API key required'}
-                    </div>
-                  </div>
-                `;
+                    <div class="text-sm text-ink-600">${api.needsKey ? `Env Variable: <code>${api.envVar}</code>` : 'No API key needed'}</div>
+                  </div>`;
               }).join('')}
             </div>
           </div>
-          
           <div class="mb-6">
             <h4 class="font-semibold mb-2">Required Netlify Functions</h4>
             <div class="bg-ink-50 p-4 rounded-lg text-sm">
-              <div class="space-y-1">
-                <div>• <code>/.netlify/functions/config</code> - API status checker</div>
-                ${API_SOURCES.map(api => `<div>• <code>/.netlify/functions/${api.endpoint}</code> - ${api.label}</div>`).join('')}
-                <div>• <code>/.netlify/functions/sheet-import</code> - CSV import handler</div>
+              <div class="space-y-1 font-mono">
+                <div>• config.js — API status checker</div>
+                ${API_SOURCES.map(api => `<div>• ${api.endpoint}.js — ${api.label}</div>`).join('')}
+                <div>• sheet-import.js — CSV import handler</div>
               </div>
             </div>
           </div>
-          
           <div class="mb-6">
             <h4 class="font-semibold mb-2">Environment Variables</h4>
             <div class="bg-ink-50 p-4 rounded-lg text-sm">
-              <p class="mb-2">Add these to your Netlify site's environment variables:</p>
+              <p class="mb-2">Add these to your Netlify site (Site settings → Build & deploy → Environment):</p>
               <div class="space-y-1 font-mono">
                 ${API_SOURCES.filter(api => api.needsKey).map(api => `<div>${api.envVar}=your_api_key_here</div>`).join('')}
               </div>
             </div>
           </div>
-          
           <div class="flex items-center justify-end gap-3">
             <button id="setupCancel" class="btn border">Close</button>
-            <a class="btn btn-cta" href="https://docs.netlify.com/functions/build-with-javascript/" target="_blank" rel="noopener">
-              📚 Netlify Functions Docs
-            </a>
+            <a class="btn btn-cta" href="https://docs.netlify.com/functions/build-with-javascript/" target="_blank" rel="noopener">📚 Netlify Functions Docs</a>
           </div>
         </div>
       </div>`;
     }
 
     // =====================
-    // Event handlers
+    // Globals for handlers
     // =====================
-    window.removeCSV = function(index) {
-      CSV_SOURCES.splice(index, 1);
-      saveState();
-      render();
-    };
+    window.removeCSV = function(index) { CSV_SOURCES.splice(index, 1); saveState(); render(); };
 
     // =====================
-    // CSV export
+    // CSV export (adds BOM for Excel)
     // =====================
-    function csvEscape(v) { 
-      let s = String(v ?? ''); 
-      if(s.includes('"')) s = s.replaceAll('"','""'); 
-      if(/[",\n]/.test(s)) s = '"' + s + '"'; 
-      return s; 
-    }
-    
-    function exportCSV() {
-      if(!state.items.length) { 
-        pushNotice('warn','No opportunities to export.'); 
-        return; 
-      }
-      
+    function csvEscape(v){ let s = String(v ?? ''); if(s.includes('"')) s = s.replaceAll('"','""'); if(/[",\n]/.test(s)) s = '"' + s + '"'; return s }
+    function exportCSV(){
+      if(!state.items.length) { pushNotice('warn','No opportunities to export.'); return }
       const rows = state.items.map(o => ({
-        Name: o.name,
-        Score: o.score,
-        Priority: o.priority,
-        Source: o.source || o.apiSource,
-        Location: o.location || '',
-        Email: o.contact?.email || '',
-        Phone: o.contact?.phone || '',
-        Compliance: o.consentStatus || '',
-        Date: fmtDate(o.capturedAt || Date.now()),
-        Venue: o.venue || '',
-        URL: o.url || '',
-        Categories: o.categories || '',
-        Rating: o.rating || '',
-        Reviews: o.reviewCount || '',
-        Industry: o.extra?.naics || '',
-        Distance: (o.distance || 0).toFixed(1),
-        Triggers: (o.triggers || []).join('; ')
+        Name: o.name, Score: o.score, Priority: o.priority, Source: o.source || o.apiSource, Location: o.location || '',
+        Email: o.contact?.email || '', Phone: o.contact?.phone || '', Compliance: o.consentStatus || '', Date: fmtDate(o.capturedAt || Date.now()),
+        Venue: o.venue || '', URL: o.url || '', Categories: o.categories || '', Rating: o.rating || '', Reviews: o.reviewCount || '', Industry: o.extra?.naics || '',
+        Distance: Number(o.distance || 0).toFixed(1), Triggers: (o.triggers || []).join('; ')
       }));
-      
       const header = Object.keys(rows[0]).map(csvEscape).join(',');
       const body = rows.map(r => Object.values(r).map(csvEscape).join(',')).join('\n');
-      const csv = header + '\n' + body;
-      
-      const blob = new Blob([csv], {type: 'text/csv'}); 
-      const url = URL.createObjectURL(blob); 
-      const a = document.createElement('a'); 
-      a.href = url; 
-      a.download = `nyl-leads-${state.region.replaceAll(' ','-')}-${new Date().toISOString().slice(0,10)}.csv`; 
-      a.click(); 
-      URL.revokeObjectURL(url);
-      
+      const csv = '\uFEFF' + header + '\n' + body; // BOM
+      const blob = new Blob([csv], {type: 'text/csv'}); const url = URL.createObjectURL(blob); const a = document.createElement('a');
+      a.href = url; a.download = `nyl-leads-${state.region.replaceAll(' ','-')}-${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
       pushNotice('success', `Exported ${rows.length} opportunities to CSV.`);
     }
 
     // =====================
     // Main render function
     // =====================
+    let searchDebounce = null;
     function render() {
       const root = document.getElementById('app');
+      const focusedElId = document.activeElement?.id;
       root.innerHTML = buildHeader() + buildNotices() + buildStats() + buildControls() + buildList() + buildFooter() + buildSettingsModal() + buildSetupModal();
+      if (focusedElId) { const el = document.getElementById(focusedElId); if (el) el.focus(); }
 
-      // Wire up event listeners
+      // Header
       $('#scanBtn')?.addEventListener('click', runScan);
       $('#exportBtn')?.addEventListener('click', exportCSV);
       $('#scanEmpty')?.addEventListener('click', runScan);
-      
-      $('#regionSel')?.addEventListener('change', (e) => { 
-        state.region = e.target.value; 
-        saveState();
-        render();
-      });
-      
-      $('#srcSel')?.addEventListener('change', (e) => { 
-        state.filters.source = e.target.value; 
-        if(state.filters.source === 'csv' && CSV_SOURCES.length === 0) {
-          pushNotice('info', 'No CSV sources configured. Add one with + CSV Source.');
-        }
-        render(); 
-      });
-      
-      $('#prioSel')?.addEventListener('change', (e) => { 
-        state.filters.priority = e.target.value; 
-        render(); 
-      });
-      
-      $('#sortSel')?.addEventListener('change', (e) => { 
-        state.filters.sort = e.target.value; 
-        render(); 
-      });
-      
-      $('#searchInput')?.addEventListener('input', (e) => { 
-        state.filters.search = e.target.value; 
-        render(); 
-      });
 
-      // CSV Modal
-      $('#addCsvBtn')?.addEventListener('click', () => { 
-        $('#settingsModal').classList.remove('hidden'); 
-        $('#settingsModal').classList.add('flex'); 
-      });
-      
-      // Close modal handlers
-      const closeCSVModal = () => { 
-        $('#settingsModal').classList.add('hidden'); 
-        $('#settingsModal').classList.remove('flex'); 
-      };
+      // Filters
+      $('#regionSel')?.addEventListener('change', (e) => { state.region = e.target.value; saveState(); render(); });
+      $('#srcSel')?.addEventListener('change', (e) => { state.filters.source = e.target.value; if(state.filters.source === 'csv' && CSV_SOURCES.length === 0) pushNotice('info', 'No CSV sources configured. Add one with + CSV Source.'); render(); });
+      $('#prioSel')?.addEventListener('change', (e) => { state.filters.priority = e.target.value; render(); });
+      $('#sortSel')?.addEventListener('change', (e) => { state.filters.sort = e.target.value; render(); });
+      $('#searchInput')?.addEventListener('input', (e) => { const val = e.target.value; clearTimeout(searchDebounce); searchDebounce = setTimeout(() => { state.filters.search = val; render(); }, 200); });
 
+      // CSV modal
+      $('#addCsvBtn')?.addEventListener('click', () => { $('#settingsModal').classList.remove('hidden'); $('#settingsModal').classList.add('flex'); $('#settingsModal').setAttribute('aria-hidden','false'); $('#csvUrl')?.focus(); });
+      const closeCSVModal = () => { $('#settingsModal').classList.add('hidden'); $('#settingsModal').classList.remove('flex'); $('#settingsModal').setAttribute('aria-hidden','true'); };
       $('#csvCancel')?.addEventListener('click', closeCSVModal);
       $('#modalClose')?.addEventListener('click', closeCSVModal);
       $('#modalBackdrop')?.addEventListener('click', closeCSVModal);
-      
       $('#csvSave')?.addEventListener('click', () => {
-        const url = $('#csvUrl').value.trim(); 
-        const label = $('#csvLabel').value.trim() || 'CSV Import';
-        
-        if(!url) { 
-          pushNotice('warn', 'Please enter a CSV URL.'); 
-          return; 
-        }
-        
-        if(!url.includes('pub?output=csv')) {
-          pushNotice('warn', 'Please use a published CSV link (should contain "pub?output=csv").');
-          return;
-        }
-        
-        CSV_SOURCES.push([url, label]); 
-        saveState();
-        pushNotice('success', `Added CSV source: ${label}`);
-        
-        $('#settingsModal').classList.add('hidden'); 
-        $('#settingsModal').classList.remove('flex');
-        $('#csvUrl').value = '';
-        $('#csvLabel').value = '';
-        render();
+        const url = $('#csvUrl').value.trim(); const label = $('#csvLabel').value.trim() || 'CSV Import';
+        if(!url) { pushNotice('warn', 'Please enter a CSV URL.'); return }
+        if(!/pub\?output=csv/.test(url)) { pushNotice('warn', 'Use a published CSV link (should contain "pub?output=csv").'); return }
+        CSV_SOURCES.push([url, label.slice(0, 60)]); saveState(); pushNotice('success', `Added CSV source: ${escapeHTML(label)}`);
+        closeCSVModal(); $('#csvUrl').value = ''; $('#csvLabel').value = ''; render();
       });
 
-      // Setup Modal
-      $('#setupBtn')?.addEventListener('click', () => { 
-        $('#setupModal').classList.remove('hidden'); 
-        $('#setupModal').classList.add('flex'); 
-      });
-      
-      // Setup modal handlers
-      const closeSetupModal = () => { 
-        $('#setupModal').classList.add('hidden'); 
-        $('#setupModal').classList.remove('flex'); 
-      };
-
+      // Setup modal
+      $('#setupBtn')?.addEventListener('click', () => { $('#setupModal').classList.remove('hidden'); $('#setupModal').classList.add('flex'); $('#setupModal').setAttribute('aria-hidden','false'); });
+      const closeSetupModal = () => { $('#setupModal').classList.add('hidden'); $('#setupModal').classList.remove('flex'); $('#setupModal').setAttribute('aria-hidden','true'); };
       $('#setupCancel')?.addEventListener('click', closeSetupModal);
       $('#setupClose')?.addEventListener('click', closeSetupModal);
       $('#setupBackdrop')?.addEventListener('click', closeSetupModal);
+      $('#refreshApiStatusBtn')?.addEventListener('click', async (e) => { const btn = e.currentTarget; btn.innerHTML = '🔄 Refreshing...'; btn.disabled = true; await fetchConfig(); render(); });
+      $('#resetAppBtn')?.addEventListener('click', () => { if (confirm('Clear saved leads, settings, and CSV sources?')) { localStorage.clear(); CSV_SOURCES = []; state.items = []; state.filters = { source:'all', priority:'all', sort:'score_desc', search:'' }; state.region = CONFIG.DEFAULT_REGION; saveState(); pushNotice('success','App reset complete.'); closeSetupModal(); render(); } });
 
-      // Apply loading state if scanning
-      if(state.isScanning) {
-        $('#app article.card').forEach(n => n.classList.add('skeleton'));
-      }
+      // ESC to close modals
+      document.onkeydown = (ev) => { if (ev.key === 'Escape') { $('#settingsModal')?.classList.add('hidden'); $('#setupModal')?.classList.add('hidden'); } };
+
+      // Apply loading shimmer to list cards only
+      if(state.isScanning) { $$('.card', document.querySelector('[data-list]') || document).forEach(n => n.classList.add('skeleton')); }
+
+      state.hasRendered = true;
     }
+
+    // =====================
+    // App lifecycle: online/offline & storage sync
+    // =====================
+    window.addEventListener('online',  () => pushNotice('success','Back online.'));
+    window.addEventListener('offline', () => pushNotice('warn','You are offline. Demo mode will still work.'));
+    window.addEventListener('storage', (e) => { if (e.key === 'csv_sources') { CSV_SOURCES = safeParse('csv_sources', []); render(); } });
 
     // =====================
     // Initialize app
     // =====================
     console.log('NYL Lead Intelligence Platform initializing...');
     render();
-    fetchConfig().then(() => {
-      console.log('Configuration loaded, ready for scanning.');
-    });
+    fetchConfig().then(() => { console.log('Configuration loaded, ready for scanning.'); render(); });
   </script>
 </body>
 </html>
