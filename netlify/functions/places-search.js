@@ -1,31 +1,41 @@
-exports.handler = async (event) => {
+import { ok, fail } from './_shared/respond.js';
+import { regionCenter, nowISO } from './_shared/geo.js';
+
+const KEY = process.env.GOOGLE_PLACES_KEY;
+const URL = 'https://places.googleapis.com/v1/places:searchText';
+const FIELD_MASK = 'places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.websiteUri,places.types';
+
+export async function handler(req) {
   try {
-    const key = process.env.GOOGLE_PLACES_KEY;
-    if (!key) return { statusCode: 200, body: JSON.stringify({ ok:false, items:[], note:"Missing GOOGLE_PLACES_KEY" }) };
+    if (!KEY) return ok([]);
+    const { searchParams } = new URL(req.url);
+    const region = searchParams.get('region') || 'Orange County';
+    const { lat, lng } = regionCenter(region);
 
-    const region = (event.queryStringParameters && event.queryStringParameters.region) || 'Orange County';
-    const query = `professional services in ${region} CA`;
-    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${key}`;
+    const textQuery = `grand opening OR new location near ${region}, CA`;
 
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Places ${res.status}`);
-    const data = await res.json();
+    const r = await fetch(URL, {
+      method: 'POST',
+      headers: { 'X-Goog-Api-Key': KEY, 'X-Goog-FieldMask': FIELD_MASK, 'content-type': 'application/json' },
+      body: JSON.stringify({ textQuery, locationBias: { circle: { center: { latitude: lat, longitude: lng }, radius: 30000 } } })
+    });
+    if (!r.ok) return fail(r.status, `Places API error: ${r.statusText}`);
+    const data = await r.json();
 
-    const items = (data.results || []).slice(0, 8).map((p, idx) => ({
-      id: p.place_id || ('pl_'+idx),
-      name: p.name || 'Business',
-      location: p.formatted_address || (region + ', CA'),
-      triggers: ['business_formation'],
-      consentStatus: 'business_public_record',
-      behaviors: ['website_visit'],
-      distance: Math.random()*12,
-      capturedAt: new Date().toISOString(),
-      contact: { email: '', phone: '' },
-      complianceNotes: 'Business listing; outreach should be professional and non-automated.'
+    const items = (data.places || []).map((p, i) => ({
+      id: `places_${i}_${p.displayName?.text || 'place'}`,
+      name: p.displayName?.text || 'Business',
+      apiSource: 'places', source: 'Google Places',
+      location: p.formattedAddress || `${region}, CA`,
+      triggers: ['new_opening'], consentStatus: 'business_public_record', behaviors: ['new_opening'],
+      distance: 0, capturedAt: nowISO(), contact: {}, venue: '',
+      categories: (p.types || []).slice(0, 3).join(', '),
+      url: p.websiteUri || '#',
+      extra: { rating: p.rating, reviewCount: p.userRatingCount }
     }));
-
-    return { statusCode: 200, body: JSON.stringify({ ok:true, items }) };
+    return ok(items);
   } catch (e) {
-    return { statusCode: 200, body: JSON.stringify({ ok:false, items:[], error: String(e) }) };
+    console.error('places-search:', e);
+    return ok([]);
   }
-};
+}
