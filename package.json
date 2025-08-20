@@ -1,12 +1,10 @@
-<<<<<<< HEAD
 {
   "name": "nyl-lead-intel",
   "private": true,
-  "type": "module"
-=======
-{
-  "name": "nyl-lead-intel",
-  "private": true,
-  "type": "module"
->>>>>>> 4701d4fa9e79e614623045f6b151c23c244226f7
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Static site - no build required'"
+  },
+  "dependencies": {},
+  "devDependencies": {}
 }

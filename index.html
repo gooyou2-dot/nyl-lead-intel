@@ -1,373 +1,1464 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>NYL Lead Intelligence Platform (Power Edition)</title>
-  <meta name="description" content="Advanced lead intelligence dashboard with 8+ API integrations.">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NYL Lead Intelligence — Modern</title>
+  <meta name="description" content="Lead intelligence dashboard with multi-source scanning and compliant public-data enrichment." />
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#f8fafc; }
-    .card { background:#fff; border:1px solid #e5e7eb; border-radius:0.75rem; box-shadow: 0 1px 2px rgba(16,24,40,.06); }
-    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:.5rem; padding:.625rem 1rem; font-weight:500; cursor:pointer; transition:all 0.2s; white-space: nowrap; }
-    .btn-primary { background:#2563eb; color:#fff; }
-    .btn-primary:hover { background:#1d4ed8; }
-    .btn-green { background:#16a34a; color:#fff; }
-    .btn-green:hover { background:#15803d; }
-    .btn-gray { background:#f3f4f6; color:#374151; border: 1px solid #d1d5db; }
-    .btn-gray:hover { background:#e5e7eb; }
-    .badge { display:inline-block; padding:.125rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:600; border:1px solid currentColor; }
-    .badge-blue { color:#1d4ed8; background:#eff6ff; border-color:#bfdbfe; }
-    .badge-green { color:#15803d; background:#ecfdf5; border-color:#bbf7d0; }
-    .badge-yellow { color:#a16207; background:#fffbeb; border-color:#fde68a; }
-    .badge-red { color:#b91c1c; background:#fef2f2; border-color:#fecaca; }
-    .badge-gray { color:#374151; background:#f9fafb; border-color:#e5e7eb; }
-    .badge-purple { color:#7c3aed; background:#f3e8ff; border-color:#d8b4fe; }
-    .badge-orange { color:#ea580c; background:#fff7ed; border-color:#fed7aa; }
-    .badge-teal { color:#0f766e; background:#f0fdfa; border-color:#99f6e4; }
-    .loading { opacity: 0.6; pointer-events: none; }
-    select { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
+    html, body { height: 100% }
+    body { 
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(1200px 800px at 10% -10%, #eff6ff 0%, transparent 60%), 
+                  radial-gradient(1200px 800px at 110% 10%, #f5f3ff 0%, transparent 60%), 
+                  linear-gradient(160deg, #fafafa, #f8fafc);
+    }
+    .glass { backdrop-filter: saturate(180%) blur(16px); background: rgba(255, 255, 255, .7) }
+    .card { background: #fff; border: 1px solid rgba(15, 23, 42, .06); box-shadow: 0 1px 2px rgba(2, 6, 23, .06); border-radius: 16px }
+    .btn { display: inline-flex; align-items: center; gap:.5rem; border-radius: 12px; padding: .65rem 1rem; font-weight: 600; transition: all .2s; cursor: pointer }
+    .btn[disabled] { opacity: .5; cursor: not-allowed }
+    .btn-primary { background: #111827; color: #fff }
+    .btn-primary:hover:not([disabled]) { background: #0b1220 }
+    .btn-cta { background: #4f46e5; color: #fff }
+    .btn-cta:hover:not([disabled]) { background: #4338ca }
+    .badge { display:inline-flex; align-items:center; gap:.35rem; border-radius:999px; border:1px solid currentColor; padding:.15rem .5rem; font-size:.725rem; font-weight:700 }
+    .shadow-soft { box-shadow: 0 10px 30px rgba(15, 23, 42, .06), 0 2px 8px rgba(15, 23, 42, .04) }
+    .skeleton { background: linear-gradient(90deg, rgba(148,163,184,.18), rgba(148,163,184,.08) 40%, rgba(148,163,184,.18)); background-size:200% 100%; animation: shimmer 1.6s infinite }
+    @keyframes shimmer { 0% { background-position:200% 0 } 100% { background-position:-200% 0 } }
+    @keyframes fadeOut { 0%{opacity:1} 90%{opacity:1} 100%{opacity:0} }
+    .loading { opacity:.6; pointer-events:none }
+    .text-ink-50{color:#f8fafc}.text-ink-100{color:#f1f5f9}.text-ink-200{color:#e2e8f0}.text-ink-300{color:#cbd5e1}.text-ink-400{color:#94a3b8}.text-ink-500{color:#64748b}.text-ink-600{color:#475569}.text-ink-700{color:#334155}.text-ink-800{color:#1e293b}.text-ink-900{color:#0f172a}
+    .bg-ink-50{background-color:#f8fafc}.bg-ink-100{background-color:#f1f5f9}.border-ink-200{border-color:#e2e8f0}.border-ink-300{border-color:#cbd5e1}
+    .error-boundary { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 1rem; border-radius: 8px; margin: 1rem; }
+    @media (prefers-reduced-motion: reduce) { .skeleton{animation:none} .shadow-soft{box-shadow:none} }
   </style>
 </head>
-<body>
+<body class="text-ink-800">
   <div id="app" class="min-h-screen"></div>
 
   <script type="module">
-    // ------- Config -------
+  'use strict'
+    // =====================
+    // Error Boundary System
+    // =====================
+    function withErrorBoundary(fn) {
+      return function(...args) {
+        try {
+          return fn.apply(this, args);
+        } catch (error) {
+          console.error('Application error:', error);
+          displayError(error);
+          return null;
+        }
+      };
+    }
+
+    function displayError(error) {
+      const app = document.getElementById('app');
+      if (app) {
+        app.innerHTML = `
+          <div class="error-boundary">
+            <h2>⚠️ Application Error</h2>
+            <p>Something went wrong. Please refresh the page.</p>
+            <details style="margin-top: 1rem;">
+              <summary>Error Details</summary>
+              <pre style="font-size: 0.8rem; margin-top: 0.5rem; white-space: pre-wrap;">${error.stack || error.message}</pre>
+            </details>
+            <button onclick="location.reload()" class="btn btn-primary" style="margin-top: 1rem;">
+              🔄 Reload Page
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    // Global error handlers
+    window.addEventListener('error', (event) => {
+      console.error('Global error:', event.error);
+      displayError(event.error);
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('Unhandled promise rejection:', event.reason);
+      displayError(new Error('Promise rejection: ' + (event.reason?.message || event.reason)));
+    });
+
+    // =====================
+    // Configuration & Constants
+    // =====================
+    const host = window.location.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1';
+    const isNetlify = host.endsWith('.netlify.app') || host.includes('netlify');
+    const isNetlifyDevProxy = isLocal && window.location.port === '8888';
+
     const CONFIG = {
+      APP_NAME: 'NYL Lead Intelligence',
       AGENT_NAME: 'Carnell Lake',
       AGENT_EMAIL: 'clake02@ft.newyorklife.com',
       AGENT_LICENSE: 'CA License #4423063',
-      OFFICE_ADDRESS: '888 Newport Center Dr, Newport Beach, CA 92660',
       DEFAULT_REGION: 'Orange County',
-      APP_NAME: 'NYL Lead Intelligence Platform'
+      VERSION: 'v2.5.0',
+      DEMO_MODE: !(isNetlify || isLocal || isNetlifyDevProxy),
+      MAX_ITEMS_DISPLAY: 100,
+      STORAGE_KEY_PREFIX: 'nyl_lead_intel_'
     };
 
     const REGIONS = ['Orange County','Los Angeles County','San Diego County','Santa Clara County','Sacramento County','Riverside County'];
 
     const API_SOURCES = [
-      { id: 'eventbrite',  name: 'Eventbrite API',   endpoint: 'eventbrite-search',  label: 'Eventbrite' },
-      { id: 'places',      name: 'Google Places',    endpoint: 'places-search',      label: 'Google Places' },
-      { id: 'ticketmaster',name: 'Ticketmaster API', endpoint: 'ticketmaster',         label: 'Ticketmaster' },
-      { id: 'seatgeek',    name: 'SeatGeek API',     endpoint: 'seatgeek',           label: 'SeatGeek' },
-      { id: 'yelp',        name: 'Yelp Hot & New',   endpoint: 'yelp',               label: 'Yelp' },
-      { id: 'lapermits',   name: 'LA City Permits',  endpoint: 'la-permits',         label: 'LA Permits' },
-      // NEW: LA City Businesses public records API
-      { id: 'lacity',      name: 'LA City Businesses', endpoint: 'lacity-businesses',  label: 'LA Businesses' },
+      { id:'places',       label:'Google Places',        endpoint:'places-search',        needsKey:true,  envVar:'GOOGLE_PLACES_KEY' },
+      { id:'eventbrite',   label:'Eventbrite',           endpoint:'eventbrite-search',    needsKey:true,  envVar:'EVENTBRITE_TOKEN' },
+      { id:'ticketmaster', label:'Ticketmaster',         endpoint:'ticketmaster',         needsKey:true,  envVar:'TICKETMASTER_API_KEY' },
+      { id:'seatgeek',     label:'SeatGeek',             endpoint:'seatgeek',             needsKey:true,  envVar:'SEATGEEK_CLIENT_ID' },
+      { id:'yelp',         label:'Yelp Hot & New',       endpoint:'yelp',                 needsKey:true,  envVar:'YELP_API_KEY' },
+      { id:'lapermits',    label:'LA City Permits',      endpoint:'la-permits',           needsKey:false, envVar:null },
+      { id:'lacity',       label:'LA City Businesses',   endpoint:'lacity-businesses',    needsKey:false, envVar:null },
     ];
 
-    // NEW: Add links to your published Google Sheets here
-    const CSV_SOURCES = [
-      // Example: [ 'https://docs.google.com/spreadsheets/d/e/2PACX-1v.../pub?output=csv', 'LA County FBN' ],
-      // Example: [ 'https://docs.google.com/spreadsheets/d/e/2PACX-1v.../pub?output=csv', 'CA SOS Export' ],
-    ];
+    // =====================
+    // Enhanced Storage Management
+    // =====================
+    function getStorageKey(key) {
+      return CONFIG.STORAGE_KEY_PREFIX + key;
+    }
 
-    // ------- State Management -------
-    const defaultState = {
-      activeTab: 'dashboard',
-      region: localStorage.getItem('nyl-region') || CONFIG.DEFAULT_REGION,
-      opportunities: JSON.parse(localStorage.getItem('nyl-opportunities')) || [],
-      notifications: [],
-      apiStatus: { ok: false, sendgrid: false },
+    function safeParse(key, fallback) {
+      try { 
+        const storageKey = getStorageKey(key);
+        const item = localStorage.getItem(storageKey); 
+        return item ? JSON.parse(item) : fallback; 
+      } catch(e) { 
+        console.warn('Storage parse failed for', key, e); 
+        try {
+          localStorage.removeItem(getStorageKey(key));
+        } catch {}
+        return fallback;
+      }
+    }
+
+    function safeSet(key, val) {
+      try { 
+        const storageKey = getStorageKey(key);
+        localStorage.setItem(storageKey, JSON.stringify(val));
+        return true;
+      } catch(e) { 
+        console.warn('Storage save failed for', key, e); 
+        
+        if (e.name === 'QuotaExceededError') {
+          try {
+            clearOldStorageData();
+            localStorage.setItem(storageKey, JSON.stringify(val));
+            pushNotice('warn', 'Storage was full. Cleared old data and saved successfully.');
+            return true;
+          } catch {
+            pushNotice('danger', 'Storage is full. Some settings may not persist.');
+            return false;
+          }
+        }
+        
+        pushNotice('warn', 'Storage failed. Some settings may not persist.');
+        return false;
+      }
+    }
+
+    function clearOldStorageData() {
+      const keys = Object.keys(localStorage);
+      const ourKeys = keys.filter(k => k.startsWith(CONFIG.STORAGE_KEY_PREFIX));
+      
+      const keepKeys = ['region', 'lastScanTime'];
+      ourKeys.forEach(key => {
+        const shortKey = key.replace(CONFIG.STORAGE_KEY_PREFIX, '');
+        if (!keepKeys.includes(shortKey)) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+
+    // CSV sources — persisted in localStorage
+    let CSV_SOURCES = safeParse('csv_sources', []);
+
+    // Scoring weights
+    const SCORE_WEIGHTS = { life: .35, quality: .25, compliance:.20, behavior:.15, geo:.05 };
+
+    // =====================
+    // State Management
+    // =====================
+    const state = {
+      region: localStorage.getItem(getStorageKey('region')) || CONFIG.DEFAULT_REGION,
+      items: safeParse('opportunities', []),
       isScanning: false,
-      filters: { source: 'all', priority: 'all', sortBy: 'score_desc' }
-    };
-    API_SOURCES.forEach(api => defaultState.apiStatus[api.id] = false);
-    let state = { ...defaultState };
-    const saveState = () => {
-      localStorage.setItem('nyl-region', state.region);
-      localStorage.setItem('nyl-opportunities', JSON.stringify(state.opportunities));
+      apiStatus: { ok:false },
+      filters: { source:'all', priority:'all', sort:'score_desc', search:'' },
+      demo: CONFIG.DEMO_MODE,
+      notices: [],
+      connectedCount: 0,
+      lastScanTime: localStorage.getItem(getStorageKey('lastScanTime')) || null,
+      hasRendered: false,
+      abortController: null,
+      eventListeners: new Map(),
     };
 
-    // ------- Helpers -------
-    const el = (html) => {
-      const t = document.createElement('template');
-      t.innerHTML = html.trim();
-      return t.content.firstElementChild;
-    };
-    const notify = (type, message) => {
-      state.notifications.unshift({ id: Date.now() + Math.random(), type, message, time: new Date() });
-      state.notifications = state.notifications.slice(0, 5);
-      render();
-    };
-    const csvEscape = (value) => {
-      let s = String(value ?? '');
-      if (s.includes('"')) s = s.replaceAll('"', '""');
-      if (/[",\n]/.test(s)) s = `"${s}"`;
-      return s;
-    };
-    const exportCSV = () => {
-      if (!state.opportunities.length) { notify('danger', 'No opportunities to export.'); return; }
-      const rows = state.opportunities.map(o => ({
-        Name: o.name, Score: o.score, Source: o.source, Location: o.location || '', Priority: o.priority || '',
-        Contact: o.contact?.email || '', Phone: o.contact?.phone || '', Compliance: o.consentStatus || '',
-        Date: (new Date(o.capturedAt)).toLocaleDateString(), Venue: o.venue || '', URL: o.url || '',
-        Categories: o.categories || '', Rating: o.rating || '', Reviews: o.reviewCount || '', Industry: o.extra?.naics || ''
-      }));
-      const header = Object.keys(rows[0]).map(csvEscape).join(',');
-      const body = rows.map(r => Object.values(r).map(csvEscape).join(',')).join('\n');
-      const csv = header + '\n' + body;
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = `nyl-leads-${state.region.replaceAll(' ', '-')}-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
-      URL.revokeObjectURL(url);
-      notify('success', `Exported ${rows.length} rows to CSV.`);
-    };
+    const saveState = withErrorBoundary(() => {
+      localStorage.setItem(getStorageKey('region'), state.region);
+      const itemsToStore = state.items.slice(0, CONFIG.MAX_ITEMS_DISPLAY);
+      safeSet('opportunities', itemsToStore);
+      safeSet('csv_sources', CSV_SOURCES);
+      localStorage.setItem(getStorageKey('lastScanTime'), state.lastScanTime || '');
+    });
+
+    // =====================
+    // Utilities & Helpers
+    // =====================
+    const $  = (sel, root = document) => root.querySelector(sel);
+    const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
     
-    // ------- Scoring Logic (unchanged) -------
-    const calculateScore = (lead) => {
-      let score = 0;
-      const weights = { life_event_trigger:.35, api_data_quality:.25, compliance_status:.20, behavioral_signals:.15, geographic_relevance:.05 };
-      const triggers = lead.triggers || [];
-      let t = 0;
-      if (triggers.includes('business_formation') || triggers.includes('new_registration') || triggers.includes('public_record')) t += 50; if (triggers.includes('new_business')) t += 45;
-      if (triggers.includes('property_development')) t += 40; if (triggers.includes('property_purchase')) t += 45;
-      if (triggers.includes('family_event')) t += 40; if (triggers.includes('executive_change')) t += 35;
-      if (triggers.includes('event_attendance')) t += 30;
-      score += Math.min(t,100) * weights.life_event_trigger;
-      let dq = { eventbrite: 90, places: 80, ticketmaster: 85, seatgeek: 85, yelp: 88, lapermits: 82, lacity: 85, csv: 70 }[lead.apiSource] || 60;
-      const ageHrs = Math.abs(Date.now() - new Date(lead.capturedAt||Date.now())) / (3600000);
-      if (ageHrs <= 1) dq += 10; else if (ageHrs <= 24) dq += 5;
-      score += Math.min(dq,100) * weights.api_data_quality;
-      let comp = { explicit_optin:100, public_event_signup:80, business_public_record:75 }[lead.consentStatus] || 20;
-      score += comp * weights.compliance_status;
-      const behaviors = lead.behaviors || [];
-      let beh=0;
-      if (behaviors.includes('event_attendance')) beh += 40; if (behaviors.includes('new_opening')) beh += 45;
-      if (behaviors.includes('construction_permit')) beh += 35; if (behaviors.includes('website_visit')) beh += 25;
-      if (behaviors.includes('form_download')) beh += 30;
-      score += Math.min(beh,100) * weights.behavioral_signals;
-      let geo=50;
-      const d = lead.distance ?? 15;
-      if (d <= 5) geo=100; else if (d <= 10) geo=80; else if (d <= 25) geo=60;
-      score += geo * weights.geographic_relevance;
-      return Math.round(Math.min(score,100));
-    };
-
-    // ------- API Logic -------
-    const fetchConfig = async () => {
+    function fmtDate(d) {
       try {
-        const res = await fetch('/.netlify/functions/config');
-        if (!res.ok) throw new Error('Network response was not ok');
-        state.apiStatus = await res.json();
-      } catch (e) { console.error("Failed to fetch API config:", e); notify('danger', 'Could not fetch API configuration.'); }
-      render();
+        return new Date(d).toLocaleDateString();
+      } catch {
+        return 'Invalid Date';
+      }
+    }
+    
+    function fmtTime(d) {
+      try {
+        return new Date(d).toLocaleTimeString();
+      } catch {
+        return 'Invalid Time';
+      }
+    }
+
+    const escapeHTML = (s='') => String(s)
+      .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+      .replaceAll('"','&quot;').replaceAll("'",'&#39;');
+
+    const pushNotice = withErrorBoundary((type, msg) => { 
+      state.notices.unshift({ 
+        id: Date.now() + Math.random(), 
+        type, 
+        msg: String(msg).substring(0, 200),
+        at: new Date() 
+      });
+      state.notices = state.notices.slice(0, 5); 
+      render(); 
+    });
+
+    // Enhanced deduplication
+    const dedupe = (arr) => {
+      if (!Array.isArray(arr)) return [];
+      
+      const map = new Map();
+      const normalize = (str) => (str || '')
+        .toLowerCase()
+        .replace(/[,.]/g, '')
+        .replace(/\s+/g, ' ')
+        .replace(/\s+(llc|inc|corp|ltd)$/i, '')
+        .trim();
+        
+      for (const o of arr) {
+        if (!o || typeof o !== 'object') continue;
+        
+        const key = normalize(o.name) + '|' + normalize(o.location).slice(0, 25);
+        if (!map.has(key)) map.set(key, o);
+      }
+      return [...map.values()];
     };
 
-    // MODIFIED: runScan now includes CSV imports
-    const runScan = async () => {
-      state.isScanning = true;
-      state.opportunities = [];
+    function calculateScore(lead) {
+      if (!lead || typeof lead !== 'object') return 0;
+      
+      let s = 0;
+      const tr = Array.isArray(lead.triggers) ? lead.triggers : []; 
+      let ts = 0;
+      
+      if(tr.includes('business_formation') || tr.includes('new_registration') || tr.includes('public_record')) ts += 50;
+      if(tr.includes('new_business')) ts += 45;
+      if(tr.includes('property_development')) ts += 40;
+      if(tr.includes('property_purchase')) ts += 45;
+      if(tr.includes('family_event')) ts += 40;
+      if(tr.includes('executive_change')) ts += 35;
+      if(tr.includes('event_attendance')) ts += 30;
+      s += Math.min(ts, 100) * SCORE_WEIGHTS.life;
+
+      const qScore = { eventbrite: 90, places: 80, ticketmaster: 85, seatgeek: 85, yelp: 88, lapermits: 82, lacity: 85, csv: 70, demo: 75 }[lead.apiSource] || 60;
+      let dq = qScore; 
+      
+      const capturedAt = lead.capturedAt ? new Date(lead.capturedAt) : new Date();
+      const ageH = Math.abs(Date.now() - capturedAt.getTime()) / 3600000; 
+      if(ageH <= 1) dq += 10; 
+      else if(ageH <= 24) dq += 5; 
+      s += Math.min(dq, 100) * SCORE_WEIGHTS.quality;
+
+      const comp = { explicit_optin: 100, public_event_signup: 80, business_public_record: 75 }[lead.consentStatus] || 20; 
+      s += comp * SCORE_WEIGHTS.compliance;
+
+      const bh = Array.isArray(lead.behaviors) ? lead.behaviors : []; 
+      let bs = 0; 
+      if(bh.includes('event_attendance')) bs += 40; 
+      if(bh.includes('new_opening')) bs += 45; 
+      if(bh.includes('construction_permit')) bs += 35; 
+      if(bh.includes('website_visit')) bs += 25; 
+      if(bh.includes('form_download')) bs += 30; 
+      s += Math.min(bs, 100) * SCORE_WEIGHTS.behavior;
+
+      const dist = typeof lead.distance === 'number' ? lead.distance : 15; 
+      let gs = 50; 
+      if(dist <= 5) gs = 100; 
+      else if(dist <= 10) gs = 80; 
+      else if(dist <= 25) gs = 60; 
+      s += gs * SCORE_WEIGHTS.geo;
+
+      return Math.round(Math.min(s, 100));
+    }
+    
+    const priorityFromScore = (s) => (s >= 80 ? 'High' : s >= 60 ? 'Medium' : 'Low');
+
+    // =====================
+    // Memory Leak Prevention
+    // =====================
+    function addManagedEventListener(element, event, handler, options = {}) {
+      if (!element) return;
+      
+      const key = `${event}_${Date.now()}_${Math.random()}`;
+      element.addEventListener(event, handler, options);
+      state.eventListeners.set(key, { element, event, handler, options });
+      
+      return key;
+    }
+
+    function removeAllEventListeners() {
+      state.eventListeners.forEach(({ element, event, handler }) => {
+        try {
+          element.removeEventListener(event, handler);
+        } catch (e) {
+          console.warn('Error removing event listener:', e);
+        }
+      });
+      state.eventListeners.clear();
+    }
+
+    // =====================
+    // Enhanced API Layer
+    // =====================
+    async function fetchConfig() {
+      try {
+        if (state.demo) {
+          state.apiStatus = { ok: true, places: true, eventbrite: true, yelp: true, lapermits: true, lacity: true, ticketmaster: false, seatgeek: false };
+          state.connectedCount = 5;
+          return;
+        }
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const r = await fetch('/.netlify/functions/config', {
+          signal: controller.signal,
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+        
+        const j = await r.json().catch(() => ({}));
+        
+        if (typeof j !== 'object') {
+          throw new Error('Invalid response format');
+        }
+        
+        state.apiStatus = { ...j, ok: true };
+        
+        const keys = ['places','eventbrite','ticketmaster','seatgeek','yelp'];
+        const connectedKeyBased = keys.filter(k => !!j[k]).length;
+        const keyless = API_SOURCES.filter(s => !s.needsKey).length;
+        state.connectedCount = connectedKeyBased + keyless;
+        
+        if (state.hasRendered) {
+          pushNotice('success', `API configuration loaded — ${state.connectedCount} sources available.`);
+        }
+      } catch(e) { 
+        console.error('Config fetch failed:', e);
+        state.demo = true; 
+        state.apiStatus = { ok: false };
+        state.connectedCount = 0;
+        
+        if (state.hasRendered) {
+          const message = e.name === 'AbortError' ? 
+            'API configuration timeout — running in demo mode.' :
+            'API configuration unavailable — running in demo mode.';
+          pushNotice('warn', message);
+        }
+      }
+    }
+
+    async function callFn(endpoint, params = {}) {
+      if (state.demo) return [];
+      
+      const qs = new URLSearchParams({ region: state.region, ...params }).toString();
+      const url = '/.netlify/functions/' + endpoint + (qs ? '?' + qs : '');
+      
+      try {
+        const r = await fetch(url, { 
+          signal: state.abortController?.signal,
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        
+        if (!r.ok) {
+          throw new Error(`API ${endpoint} failed: HTTP ${r.status} ${r.statusText}`);
+        }
+        
+        const j = await r.json().catch(() => ({ ok: false, items: [] }));
+        
+        if (typeof j !== 'object') {
+          console.warn(`Invalid response from ${endpoint}:`, j);
+          return [];
+        }
+        
+        return j.ok ? (Array.isArray(j.items) ? j.items : []) : [];
+      } catch(e) { 
+        if (e.name === 'AbortError') throw e;
+        console.error(`Network error calling ${endpoint}:`, e);
+        throw e; 
+      }
+    }
+
+    // =====================
+    // Enhanced Scanning
+    // =====================
+    const runScan = withErrorBoundary(async () => {
+      if (state.isScanning) {
+        try { 
+          state.abortController?.abort(); 
+        } catch(e) {
+          console.warn('Error aborting scan:', e);
+        }
+        return;
+      }
+
+      state.abortController = new AbortController();
+      state.isScanning = true; 
+      state.items = []; 
+      state.notices = []; 
       render();
 
-      const activeApis = API_SOURCES.filter(api => state.apiStatus[api.id]);
-      const totalSources = activeApis.length + CSV_SOURCES.length;
+      if (state.demo || state.connectedCount === 0) {
+        await new Promise(r => setTimeout(r, 900));
+        const demoData = getDemoData();
+        state.items = demoData.map(x => { 
+          const sc = calculateScore(x); 
+          return { ...x, score: sc, priority: priorityFromScore(sc) }; 
+        });
+        state.isScanning = false; 
+        state.lastScanTime = new Date().toISOString();
+        saveState();
+        
+        const msg = state.demo ? 
+          `Found ${state.items.length} fresh demo opportunities for ${new Date().toLocaleDateString()}. Deploy to Netlify for live data.` : 
+          `Found ${state.items.length} fresh demo opportunities. Configure API keys for live data.`;
+        pushNotice('success', msg); 
+        render(); 
+        return;
+      }
 
-      if (totalSources === 0) {
-        notify('warn', 'No APIs or CSVs configured. Running in Demo Mode.');
-        state.opportunities = getDemoData(); // Fallback demo data
+      let allItems = [];
+      const status = state.apiStatus || {};
+      const liveSources = API_SOURCES.filter(s => !s.needsKey || status[s.id]);
+      pushNotice('info', `Starting scan for ${state.region}...`);
+
+      try {
+        for (const source of liveSources) {
+          if (state.abortController?.signal.aborted) break;
+          
+          pushNotice('info', `Scanning ${source.label}...`);
+          try { 
+            const items = await callFn(source.endpoint); 
+            if (Array.isArray(items)) {
+              allItems.push(...items);
+            }
+          } catch (err) { 
+            if (err.name !== 'AbortError') {
+              console.warn(`Failed to fetch from ${source.label}:`, err);
+              pushNotice('warn', `Could not fetch leads from ${source.label}.`); 
+            } else { 
+              throw err; 
+            }
+          }
+        }
+
+        for (const [url, label] of CSV_SOURCES) {
+          if (state.abortController?.signal.aborted) break;
+          
+          pushNotice('info', `Importing from ${escapeHTML(label)}...`);
+          try { 
+            const items = await callFn('sheet-import', { url, label }); 
+            if (Array.isArray(items)) {
+              allItems.push(...items);
+            }
+          } catch (err) { 
+            if (err.name !== 'AbortError') {
+              console.warn(`Failed to import CSV ${label}:`, err);
+              pushNotice('warn', `Failed to import CSV: ${escapeHTML(label)}`); 
+            } else { 
+              throw err; 
+            }
+          }
+        }
+
+        let merged = dedupe(allItems);
+        
+        if (merged.length === 0) { 
+          pushNotice('warn', 'No live data found — showing fresh demo opportunities as a fallback.'); 
+          merged = getDemoData(); 
+        }
+        
+        merged = merged.map(it => { 
+          const sc = calculateScore(it); 
+          return { ...it, score: sc, priority: priorityFromScore(sc) }; 
+        });
+        
+        state.items = merged.sort((a, b) => (b.score || 0) - (a.score || 0));
+        state.lastScanTime = new Date().toISOString();
+        saveState();
+        
+        const successfulSources = liveSources.length + CSV_SOURCES.length;
+        pushNotice('success', `Scan complete! Found ${state.items.length} opportunities from ${successfulSources} sources.`);
+        
+      } catch (e) {
+        if (e.name === 'AbortError') { 
+          pushNotice('warn', 'Scan cancelled.'); 
+        } else { 
+          console.error('Scan error:', e);
+          pushNotice('danger', 'Scan failed. Check console for details.'); 
+        }
+      } finally {
         state.isScanning = false;
+        state.abortController = null;
         render();
+      }
+    });
+
+    // =====================
+    // Demo Data Generator
+    // =====================
+    function getDemoData() {
+      try {
+        const today = new Date().toDateString();
+        const seed = hashCode(today + state.region);
+        const numOpps = 3 + (seed % 6);
+        const opportunities = [];
+        
+        const businessTypes = [
+          'Business Growth Summit', 'Professional Services', 'Coffee Roastery', 'Tech Innovation Meetup',
+          'Fitness Studio', 'Marketing Agency', 'Real Estate Group', 'Investment Club',
+          'Dental Practice', 'Law Firm', 'Accounting Services', 'Consulting Group'
+        ];
+        
+        const venues = ['Convention Center','Business District','Main Street','Innovation Hub'];
+        const modifiers = ['New','Modern','Premier','Elite','Advanced','Innovative'];
+        const events = ['Summit','Conference','Workshop','Seminar','Networking Event','Grand Opening'];
+        
+        for (let i = 0; i < numOpps; i++) {
+          const isEvent = (seed + i) % 3 === 0;
+          const businessIndex = (seed + i) % businessTypes.length;
+          const modifierIndex = (seed + i * 2) % modifiers.length;
+          const venueIndex = (seed + i * 3) % venues.length;
+          
+          let name, triggers, behaviors, consentStatus;
+          
+          if (isEvent) {
+            const eventIndex = (seed + i) % events.length;
+            name = `${state.region} ${businessTypes[businessIndex]} ${events[eventIndex]}`;
+            triggers = ['event_attendance']; 
+            behaviors = ['event_attendance']; 
+            consentStatus = 'public_event_signup';
+          } else {
+            name = `${modifiers[modifierIndex]} ${businessTypes[businessIndex]}`;
+            if ((seed + i) % 4 === 0) name += ' LLC';
+            
+            triggers = ['business_formation','new_registration']; 
+            behaviors = ['new_opening','website_visit']; 
+            consentStatus = 'business_public_record';
+          }
+          
+          const emailDomains = ['gmail.com','company.com','business.net'];
+          const emailName = name.toLowerCase().replace(/[^a-z]/g, '').slice(0, 8);
+          const emailDomain = emailDomains[(seed + i) % emailDomains.length];
+          const email = `${emailName}@${emailDomain}`;
+          
+          const areaCode = state.region.includes('Orange') ? '714' : '323';
+          const phone = `(${areaCode}) ${String(555 + (seed + i) % 400).padStart(3, '0')}-${String(1000 + (seed + i * 7) % 9000).padStart(4, '0')}`;
+          
+          const hoursAgo = ((seed + i) % 48) + 1; 
+          const capturedAt = new Date(Date.now() - hoursAgo * 60 * 60 * 1000).toISOString();
+          
+          const distance = Math.round(((seed + i * 3) % 100) / 100 * 25 * 10) / 10;
+          
+          opportunities.push({
+            id: `fresh_${today.replace(/\s/g, '_')}_${i}`,
+            name, 
+            apiSource: 'demo', 
+            source: 'Fresh Demo', 
+            location: `${state.region}, CA`, 
+            triggers, 
+            consentStatus, 
+            behaviors,
+            distance, 
+            capturedAt,
+            contact: { email, phone: (seed + i) % 3 === 0 ? phone : undefined },
+            venue: venues[venueIndex]
+          });
+        }
+        
+        return opportunities;
+      } catch (error) {
+        console.error('Error generating demo data:', error);
+        return [];
+      }
+    }
+    
+    function hashCode(str) { 
+      let hash = 0; 
+      for (let i = 0; i < str.length; i++) { 
+        const char = str.charCodeAt(i); 
+        hash = ((hash << 5) - hash) + char; 
+        hash |= 0; 
+      } 
+      return Math.abs(hash); 
+    }
+
+    // =====================
+    // UI Components
+    // =====================
+    function buildHeader() {
+      try {
+        const connected = state.connectedCount;
+        const scanText = state.isScanning ? 'Cancel Scan' : `Scan ${state.region}`;
+        const liveBadge = state.demo ? 
+          '<span class="badge" style="color:#7c3aed;background:#f3e8ff;border-color:#d8b4fe">Demo</span>' : 
+          '<span class="badge" style="color:#dc2626;background:#fef2f2;border-color:#fecaca">🔴 LIVE DATA</span>';
+          
+        return `
+          <header class="sticky top-0 z-30">
+            <div class="glass shadow-soft border-b" style="border-color: rgba(255,255,255,0.4);">
+              <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-xl" style="background: linear-gradient(135deg, #6366f1, #4f46e5);"></div>
+                  <div>
+                    <h1 class="text-lg md:text-xl font-semibold text-ink-900">${CONFIG.APP_NAME}</h1>
+                    <p class="text-ink-500 text-xs">for ${escapeHTML(CONFIG.AGENT_NAME)}</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <div class="hidden md:flex items-center gap-2 text-xs">
+                    <span class="badge" style="color:#0f766e;background:#ecfdf5;border-color:#99f6e4">${connected} sources</span>
+                    ${liveBadge}
+                    ${state.lastScanTime ? `<span class="badge" style="color:#6b7280;background:#f9fafb;border-color:#e5e7eb">Last: ${fmtTime(state.lastScanTime)}</span>` : ''}
+                    <span class="badge" style="color:#6b7280;background:#f9fafb;border-color:#e5e7eb">${CONFIG.VERSION}</span>
+                  </div>
+                  <button id="scanBtn" class="btn btn-cta">${scanText}</button>
+                  <button id="exportBtn" class="btn btn-primary" ${state.items.length && !state.isScanning ? '' : 'disabled'}>Export CSV</button>
+                </div>
+              </div>
+            </div>
+          </header>`;
+      } catch (error) {
+        console.error('Error building header:', error);
+        return '<header class="error-boundary">Error loading header</header>';
+      }
+    }
+
+    function buildNotices() {
+      try {
+        if(!state.notices.length) return '';
+        const typeStyles = { 
+          success:'border-green-200 bg-green-50 text-green-800', 
+          info:'border-blue-200 bg-blue-50 text-blue-800', 
+          warn:'border-yellow-200 bg-yellow-50 text-yellow-800', 
+          danger:'border-red-200 bg-red-50 text-red-800' 
+        };
+        return `<div class="fixed top-24 right-6 w-full max-w-sm z-50 space-y-2" aria-live="polite">${state.notices.map(n => `
+          <div class="card px-4 py-3 border ${typeStyles[n.type] || typeStyles.info} shadow-lg" role="status" style="animation: fadeOut 8s forwards;">
+            <div class="flex justify-between items-center text-sm">
+              <span>${escapeHTML(n.msg)}</span>
+              <span class="text-ink-400 text-xs">${fmtTime(n.at)}</span>
+            </div>
+          </div>`).join('')}</div>`;
+      } catch (error) {
+        console.error('Error building notices:', error);
+        return '';
+      }
+    }
+
+    function buildStats() {
+      try {
+        const high = state.items.filter(i => i.priority === 'High').length;
+        const newBiz = state.items.filter(i => (i.triggers || []).some(t => ['new_registration','public_record','new_business'].includes(t))).length;
+        return `<section class="max-w-7xl mx-auto px-6 mt-6">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            ${statCard('🎯','Total Opportunities', state.items.length)}
+            ${statCard('🔥','High Priority', high)}
+            ${statCard('🆕','New Businesses', newBiz)}
+            ${statCard('🗄️','Sources', state.connectedCount + CSV_SOURCES.length)}
+          </div>
+        </section>`;
+      } catch (error) {
+        console.error('Error building stats:', error);
+        return '<section class="error-boundary">Error loading stats</section>';
+      }
+    }
+    
+    const statCard = (emoji, label, val) => `
+      <div class="card p-5">
+        <div class="flex items-center gap-3">
+          <div class="text-2xl">${emoji}</div>
+          <div>
+            <div class="text-2xl font-semibold">${val || 0}</div>
+            <div class="text-ink-500 text-sm">${escapeHTML(label)}</div>
+          </div>
+        </div>
+      </div>`;
+
+    function buildControls() {
+      try {
+        const srcOpts = [ 
+          { id: 'all', label: 'All Sources' }, 
+          ...API_SOURCES.map(s => ({ id: s.id, label: s.label })), 
+          ...(CSV_SOURCES.length > 0 ? [{ id: 'csv', label: 'CSV Imports' }] : []), 
+          { id: 'demo', label: 'Demo Data' } 
+        ];
+        const sourceOptions = srcOpts.map(opt => `<option value="${escapeHTML(opt.id)}" ${state.filters.source === opt.id ? 'selected' : ''}>${escapeHTML(opt.label)}</option>`).join('');
+        
+        return `<section class="max-w-7xl mx-auto px-6 mt-6">
+          <div class="card p-4 flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2">
+              <label class="text-sm text-ink-600" for="regionSel">Region</label>
+              <select id="regionSel" class="border rounded-lg px-3 py-2 text-sm">${REGIONS.map(r => `<option value="${escapeHTML(r)}" ${r === state.region ? 'selected' : ''}>${escapeHTML(r)}</option>`).join('')}</select>
+            </div>
+            <div class="flex items-center gap-2">
+              <label class="text-sm text-ink-600" for="srcSel">Source</label>
+              <select id="srcSel" class="border rounded-lg px-3 py-2 text-sm">${sourceOptions}</select>
+            </div>
+            <div class="flex items-center gap-2">
+              <label class="text-sm text-ink-600" for="prioSel">Priority</label>
+              <select id="prioSel" class="border rounded-lg px-3 py-2 text-sm">
+                <option value="all" ${state.filters.priority === 'all' ? 'selected' : ''}>All</option>
+                <option value="High" ${state.filters.priority === 'High' ? 'selected' : ''}>High</option>
+                <option value="Medium" ${state.filters.priority === 'Medium' ? 'selected' : ''}>Medium</option>
+                <option value="Low" ${state.filters.priority === 'Low' ? 'selected' : ''}>Low</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <label class="text-sm text-ink-600" for="sortSel">Sort</label>
+              <select id="sortSel" class="border rounded-lg px-3 py-2 text-sm">
+                <option value="score_desc" ${state.filters.sort === 'score_desc' ? 'selected' : ''}>Score</option>
+                <option value="name_asc" ${state.filters.sort === 'name_asc' ? 'selected' : ''}>Name</option>
+                <option value="date_desc" ${state.filters.sort === 'date_desc' ? 'selected' : ''}>Date</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2 grow">
+              <label class="sr-only" for="searchInput">Search</label>
+              <input id="searchInput" value="${escapeHTML(state.filters.search)}" placeholder="Search names, venues…" class="w-full border rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="addCsvBtn" class="btn border border-ink-200">+ CSV Source</button>
+              ${!state.demo ? '<button id="setupBtn" class="btn border border-ink-200">⚙️ Setup</button>' : ''}
+            </div>
+          </div>
+        </section>`;
+      } catch (error) {
+        console.error('Error building controls:', error);
+        return '<section class="error-boundary">Error loading controls</section>';
+      }
+    }
+
+    function buildList() {
+      try {
+        let items = [...state.items];
+        const f = state.filters; 
+        const q = (f.search || '').toLowerCase().trim();
+        
+        if(f.source !== 'all') {
+          items = items.filter(i => { 
+            if (f.source === 'csv') return i.apiSource === 'csv'; 
+            if (f.source === 'demo') return i.apiSource === 'demo'; 
+            return i.apiSource === f.source; 
+          });
+        }
+        
+        if(f.priority !== 'all') {
+          items = items.filter(i => i.priority === f.priority);
+        }
+        
+        if(q) {
+          items = items.filter(i => 
+            (i.name || '').toLowerCase().includes(q) || 
+            (i.venue || '').toLowerCase().includes(q) || 
+            (i.location || '').toLowerCase().includes(q) ||
+            (i.categories || '').toLowerCase().includes(q)
+          );
+        }
+        
+        if(f.sort === 'name_asc') {
+          items.sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+        } else if(f.sort === 'date_desc') {
+          items.sort((a,b) => new Date(b.capturedAt || 0) - new Date(a.capturedAt || 0));
+        } else {
+          items.sort((a,b) => (b.score || 0) - (a.score || 0));
+        }
+
+        if(!items.length){
+          return `<section class="max-w-7xl mx-auto px-6 mt-6">
+            <div class="card p-12 text-center">
+              <div class="text-5xl text-ink-300 mb-3">🎯</div>
+              <div class="text-lg font-semibold">No results found</div>
+              <div class="text-ink-500 mb-4">${state.items.length === 0 ? 'Try scanning for opportunities in your region.' : 'Try adjusting your filters or search terms.'}</div>
+              <div class="mt-5"><button id="scanEmpty" class="btn btn-cta">Scan ${escapeHTML(state.region)}</button></div>
+            </div>
+          </section>`;
+        }
+
+        return `<section class="max-w-7xl mx-auto px-6 mt-6" data-list>
+          <div class="mb-4 text-sm text-ink-600">Showing ${items.length} of ${state.items.length} opportunities</div>
+          <div class="space-y-4">${items.map(buildCard).join('')}</div>
+        </section>`;
+      } catch (error) {
+        console.error('Error building list:', error);
+        return '<section class="error-boundary">Error loading opportunities list</section>';
+      }
+    }
+
+    const chip = (txt, tone='gray') => {
+      const styles = { 
+        red:'text-red-700 border-red-200 bg-red-50', 
+        green:'text-emerald-700 border-emerald-200 bg-emerald-50', 
+        blue:'text-blue-700 border-blue-200 bg-blue-50', 
+        gray:'text-ink-600 border-ink-200 bg-ink-50' 
+      };
+      return `<span class="badge ${styles[tone] || styles.gray}">${escapeHTML(String(txt))}</span>`;
+    };
+
+    function buildCard(o) {
+      try {
+        if (!o || typeof o !== 'object') {
+          console.warn('Invalid opportunity object:', o);
+          return '';
+        }
+
+        const scoreTone = (o.score || 0) >= 80 ? 'green' : (o.score || 0) >= 60 ? 'blue' : 'gray';
+        const priorityTone = o.priority === 'High' ? 'red' : o.priority === 'Medium' ? 'blue' : 'gray';
+        
+        let contactDisplay = 'N/A';
+        if (o.contact?.phone && o.contact?.email) {
+          contactDisplay = `${escapeHTML(o.contact.phone)} • ${escapeHTML(o.contact.email)}`;
+        } else if (o.contact?.phone) {
+          contactDisplay = escapeHTML(o.contact.phone);
+        } else if (o.contact?.email) {
+          contactDisplay = escapeHTML(o.contact.email);
+        }
+        
+        const nameSafe = escapeHTML(o.name || '—');
+        const srcSafe = escapeHTML(o.source || (o.apiSource ? String(o.apiSource).toUpperCase() : 'Source'));
+        const locSafe = escapeHTML(o.location || 'Not specified');
+        const venueSafe = escapeHTML(o.venue || '');
+        const industrySafe = escapeHTML(o.extra?.naics || '');
+
+        return `<article class="card p-6 hover:shadow-soft transition-shadow">
+          <div class="flex items-start justify-between gap-6">
+            <div class="min-w-0 grow">
+              <div class="flex flex-wrap items-center gap-2 mb-3">
+                <h3 class="text-lg font-semibold text-ink-900 truncate">${nameSafe}</h3>
+                ${chip(o.priority || 'Low', priorityTone)}
+                ${chip(srcSafe)}
+                ${o.apiSource === 'demo' ? chip('DEMO', 'blue') : ''}
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
+                <div><div class="text-ink-500">Contact</div><div class="font-medium truncate">${contactDisplay}</div></div>
+                <div><div class="text-ink-500">Location</div><div class="font-medium truncate">${locSafe}</div></div>
+                <div><div class="text-ink-500">Distance</div><div class="font-medium">${Number(o.distance || 0).toFixed(1)} mi</div></div>
+                ${industrySafe ? `<div><div class="text-ink-500">Industry</div><div class="font-medium truncate">${industrySafe}</div></div>` : ''}
+                ${o.venue ? `<div><div class="text-ink-500">Venue</div><div class="font-medium truncate">${venueSafe}</div></div>` : ''}
+                <div><div class="text-ink-500">Captured</div><div class="font-medium">${fmtDate(o.capturedAt || Date.now())}</div></div>
+              </div>
+              ${(o.triggers && o.triggers.length > 0) ? `<div class="mb-4"><div class="text-ink-500 text-sm mb-1">Triggers</div><div class="flex flex-wrap gap-1">${o.triggers.map(t => chip(String(t).replace(/_/g,' '), 'blue')).join('')}</div></div>` : ''}
+              <div class="flex flex-wrap gap-2">
+                ${o.contact?.email ? `<a class="btn border hover:bg-ink-50" href="mailto:${encodeURIComponent(o.contact.email)}?subject=${encodeURIComponent(`Introduction — ${CONFIG.AGENT_NAME}, New York Life`)}&body=${encodeURIComponent(`Hello,\n\nI'm ${CONFIG.AGENT_NAME}, a New York Life agent in ${state.region}. I help families and businesses with financial protection and planning.\n\nI'd love to connect and see if I can be a resource for you.\n\nBest regards,\n${CONFIG.AGENT_NAME}\n${CONFIG.AGENT_LICENSE}\n${CONFIG.AGENT_EMAIL}`)}">📧 Email</a>` : ''}
+                ${o.contact?.phone ? `<a class="btn border hover:bg-ink-50" href="tel:${encodeURIComponent(o.contact.phone)}">📞 Call</a>` : ''}
+                ${(o.url && o.url !== '#' && o.url !== '#demo' && o.url !== '#csv-import') ? `<a class="btn border hover:bg-ink-50" href="${escapeHTML(o.url)}" target="_blank" rel="noopener">🔗 Details</a>` : ''}
+                <a class="btn border hover:bg-ink-50" target="_blank" rel="noopener" href="https://www.google.com/search?q=${encodeURIComponent((o.name || '') + ' ' + (o.location || ''))}">🔍 Research</a>
+              </div>
+            </div>
+            <div class="text-center shrink-0">
+              <div class="px-4 py-2 rounded-xl border text-2xl font-bold ${getScoreStyles(scoreTone)}">${o.score ?? '—'}</div>
+              <div class="text-xs text-ink-500 mt-1">AI Score</div>
+            </div>
+          </div>
+        </article>`;
+      } catch (error) {
+        console.error('Error building card for opportunity:', o, error);
+        return '<div class="error-boundary">Error loading opportunity</div>';
+      }
+    }
+
+    function getScoreStyles(tone) {
+      const styles = { 
+        green:'border-emerald-200 bg-emerald-50 text-emerald-700', 
+        blue:'border-indigo-200 bg-indigo-50 text-indigo-700', 
+        gray:'border-ink-200 bg-ink-50 text-ink-700' 
+      };
+      return styles[tone] || styles.gray;
+    }
+
+    // =====================
+    // Modals & Footer
+    // =====================
+    function buildSettingsModal() {
+      try {
+        return `<div id="settingsModal" class="fixed inset-0 hidden items-center justify-center z-50" aria-hidden="true">
+          <div class="absolute inset-0 bg-black/40" id="modalBackdrop"></div>
+          <div class="relative card w-full max-w-xl p-6 mx-4">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-semibold">Add CSV Source</h3>
+              <button id="modalClose" class="text-ink-400 hover:text-ink-600" aria-label="Close">✕</button>
+            </div>
+            <p class="text-sm text-ink-600 mb-4">
+              Paste a <strong>published CSV</strong> link (e.g., Google Sheets → Publish to web → CSV). 
+              Great for LA County FBN, CA SOS exports, or OC deeds.
+            </p>
+            <div class="space-y-3">
+              <input id="csvUrl" class="w-full border rounded-lg px-3 py-2 text-sm" 
+                placeholder="https://docs.google.com/.../pub?output=csv" 
+                aria-label="CSV URL" />
+              <input id="csvLabel" class="w-full border rounded-lg px-3 py-2 text-sm" 
+                placeholder="Label (e.g., LA County FBN)" 
+                aria-label="CSV Label" />
+            </div>
+            ${CSV_SOURCES.length > 0 ? `
+              <div class="mt-4">
+                <div class="text-sm font-medium text-ink-700 mb-2">Current CSV Sources:</div>
+                <div class="space-y-1">
+                  ${CSV_SOURCES.map(([url, label], index) => `
+                    <div class="flex items-center justify-between p-2 bg-ink-50 rounded text-sm">
+                      <span class="truncate flex-1 mr-2">${escapeHTML(label)}</span>
+                      <button class="text-red-600 hover:text-red-800 shrink-0" 
+                        onclick="removeCSV(${index})" 
+                        aria-label="Remove ${escapeHTML(label)}">Remove</button>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+            <div class="mt-5 flex items-center justify-end gap-3">
+              <button id="csvCancel" class="btn border">Cancel</button>
+              <button id="csvSave" class="btn btn-cta">Add Source</button>
+            </div>
+          </div>
+        </div>`;
+      } catch (error) {
+        console.error('Error building settings modal:', error);
+        return '';
+      }
+    }
+
+    function buildSetupModal() {
+      try {
+        return `<div id="setupModal" class="fixed inset-0 hidden items-center justify-center z-50" aria-hidden="true">
+          <div class="absolute inset-0 bg-black/40" id="setupBackdrop"></div>
+          <div class="relative card w-full max-w-4xl p-6 mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-semibold">API Setup & Configuration</h3>
+              <div class="flex items-center gap-3">
+                <button id="refreshApiStatusBtn" class="btn text-sm p-2 border">🔄 Refresh Status</button>
+                <button id="resetAppBtn" class="btn text-sm p-2 border">🧹 Reset App</button>
+                <button id="setupClose" class="text-ink-400 hover:text-ink-600 text-2xl" aria-label="Close">✕</button>
+              </div>
+            </div>
+            <div class="mb-6">
+              <h4 class="font-semibold mb-2">Current API Status</h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                ${API_SOURCES.map(api => {
+                  const isConnected = state.apiStatus[api.id] || !api.needsKey;
+                  return `
+                    <div class="border rounded-lg p-4 ${isConnected ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}">
+                      <div class="flex items-center justify-between mb-2">
+                        <span class="font-medium">${escapeHTML(api.label)}</span>
+                        <span class="badge ${isConnected ? 'text-green-700 bg-white' : 'text-red-700 bg-white'}">${isConnected ? 'Connected' : 'Not Connected'}</span>
+                      </div>
+                      <div class="text-sm text-ink-600">${api.needsKey ? `Env Variable: <code>${escapeHTML(api.envVar)}</code>` : 'No API key needed'}</div>
+                    </div>`;
+                }).join('')}
+              </div>
+            </div>
+            <div class="flex items-center justify-end gap-3">
+              <button id="setupCancel" class="btn border">Close</button>
+              <a class="btn btn-cta" href="https://docs.netlify.com/functions/build-with-javascript/" target="_blank" rel="noopener">📚 Netlify Functions Docs</a>
+            </div>
+          </div>
+        </div>`;
+      } catch (error) {
+        console.error('Error building setup modal:', error);
+        return '';
+      }
+    }
+
+    function buildFooter() {
+      try {
+        return `<footer class="max-w-7xl mx-auto px-6 py-10 text-center text-xs text-ink-500">
+          © ${new Date().getFullYear()} New York Life Insurance Company. For informational purposes only; not an offer or solicitation. 
+          ${escapeHTML(CONFIG.AGENT_NAME)} — ${escapeHTML(CONFIG.AGENT_LICENSE)}. 
+          Contact: ${escapeHTML(CONFIG.AGENT_EMAIL)}.
+        </footer>`;
+      } catch (error) {
+        console.error('Error building footer:', error);
+        return '<footer class="error-boundary">Error loading footer</footer>';
+      }
+    }
+
+    // =====================
+    // Global Handlers
+    // =====================
+    window.removeCSV = function(index) { 
+      try {
+        if (index >= 0 && index < CSV_SOURCES.length) {
+          CSV_SOURCES.splice(index, 1); 
+          saveState(); 
+          render(); 
+        }
+      } catch (error) {
+        console.error('Error removing CSV:', error);
+        pushNotice('danger', 'Failed to remove CSV source');
+      }
+    };
+
+    // =====================
+    // CSV Export
+    // =====================
+    function csvEscape(v) { 
+      try {
+        let s = String(v ?? ''); 
+        if(s.includes('"')) s = s.replaceAll('"','""'); 
+        if(/[",\n\r]/.test(s)) s = '"' + s + '"'; 
+        return s;
+      } catch (error) {
+        console.warn('CSV escape error for value:', v, error);
+        return '""';
+      }
+    }
+    
+    function exportCSV() {
+      try {
+        if(!state.items.length) { 
+          pushNotice('warn','No opportunities to export.'); 
+          return; 
+        }
+        
+        const rows = state.items.map(o => ({
+          Name: o.name || '', 
+          Score: o.score || 0, 
+          Priority: o.priority || '', 
+          Source: o.source || o.apiSource || '', 
+          Location: o.location || '',
+          Email: o.contact?.email || '', 
+          Phone: o.contact?.phone || '', 
+          Date: fmtDate(o.capturedAt || Date.now()),
+          Distance: Number(o.distance || 0).toFixed(1), 
+          Triggers: Array.isArray(o.triggers) ? o.triggers.join('; ') : ''
+        }));
+        
+        const header = Object.keys(rows[0]).map(csvEscape).join(',');
+        const body = rows.map(r => Object.values(r).map(csvEscape).join(',')).join('\n');
+        const csv = '\uFEFF' + header + '\n' + body;
+        
+        const blob = new Blob([csv], {type: 'text/csv;charset=utf-8'}); 
+        const url = URL.createObjectURL(blob); 
+        const a = document.createElement('a');
+        
+        a.href = url; 
+        a.download = `nyl-leads-${state.region.replaceAll(' ','-')}-${new Date().toISOString().slice(0,10)}.csv`; 
+        a.click(); 
+        
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        pushNotice('success', `Exported ${rows.length} opportunities to CSV.`);
+      } catch (error) {
+        console.error('Export CSV error:', error);
+        pushNotice('danger', 'Failed to export CSV. Please try again.');
+      }
+    }
+
+    // =====================
+    // Main Render Function
+    // =====================
+    let searchDebounce = null;
+    
+    const render = withErrorBoundary(() => {
+      removeAllEventListeners();
+      
+      const root = document.getElementById('app');
+      if (!root) {
+        console.error('App root element not found');
         return;
       }
       
-      const apiPromises = activeApis.map(api =>
-        fetch(`/.netlify/functions/${api.endpoint}?region=${encodeURIComponent(state.region)}`)
-          .then(res => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`)))
-      );
-
-      const csvPromises = CSV_SOURCES.map(([url, label]) => 
-        fetch(`/.netlify/functions/sheet-import?url=${encodeURIComponent(url)}&label=${encodeURIComponent(label)}&region=${encodeURIComponent(state.region)}`)
-          .then(res => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`)))
-      );
-
-      const results = await Promise.allSettled([...apiPromises, ...csvPromises]);
-      let combined = [];
-      let successfulScans = 0;
-
-      results.forEach((result, index) => {
-        const sourceName = index < activeApis.length ? activeApis[index].name : CSV_SOURCES[index - activeApis.length][1];
-        if (result.status === 'fulfilled' && result.value.ok) {
-          const data = result.value;
-          if (data.items && data.items.length > 0) {
-            combined = combined.concat(data.items);
-            successfulScans++;
+      const focusedElId = document.activeElement?.id;
+      
+      try {
+        root.innerHTML = [
+          buildHeader(),
+          buildNotices(),
+          buildStats(),
+          buildControls(),
+          buildList(),
+          buildFooter(),
+          buildSettingsModal(),
+          buildSetupModal()
+        ].join('');
+      } catch (error) {
+        console.error('Error during render:', error);
+        root.innerHTML = '<div class="error-boundary">Rendering error. Please refresh the page.</div>';
+        return;
+      }
+      
+      if (focusedElId) { 
+        const el = document.getElementById(focusedElId); 
+        if (el) {
+          try {
+            el.focus();
+          } catch (e) {
+            console.warn('Could not restore focus to', focusedElId, e);
           }
-        } else {
-          console.error(`Failed to fetch from ${sourceName}:`, result.reason || result.value.error);
-          notify('danger', `Failed to fetch from ${sourceName}.`);
         }
-      });
-      
-      const uniqueOpportunities = new Map();
-      combined.forEach(op => {
-          const key = `${op.name.toLowerCase().trim()}|${(op.location || "").substring(0, 10)}`;
-          if (!uniqueOpportunities.has(key)) { uniqueOpportunities.set(key, op); }
-      });
-      
-      state.opportunities = Array.from(uniqueOpportunities.values()).map(it => {
-        const score = calculateScore(it);
-        return { ...it, score, priority: score >= 80 ? 'High' : score >= 60 ? 'Medium' : 'Low' };
-      });
+      }
 
-      notify('success', `Found ${state.opportunities.length} unique opportunities from ${successfulScans} of ${totalSources} sources.`);
-      state.isScanning = false;
-      saveState();
-      render();
-    };
-    
-    const getDemoData = () => [
-        { id:`demo_${Date.now()}`, name:'Small Business Growth Summit', apiSource:'eventbrite', source:'Demo Data', location:`${state.region}, CA`, eventDate:new Date(Date.now()+7*24*60*60*1000).toISOString(), triggers:['business_formation','executive_change'], consentStatus:'public_event_signup', behaviors:['event_attendance'], distance:Math.random()*15, capturedAt:new Date().toISOString(), contact:{email:'organizer@businesssummit.com', phone:'(714) 555-0123'}, venue:'Convention Center' },
-        { id:`demo2_${Date.now()}`, name:`${state.region} Professional Services`, apiSource:'places', source:'Demo Data', location:`${state.region}, CA`, triggers:['business_formation'], consentStatus:'business_public_record', behaviors:['website_visit'], distance:Math.random()*12, capturedAt:new Date().toISOString(), contact:{email:'info@profservices.com', phone:'(714) 555-0345'}, venue:'Business District', extra: { naics: 'Professional, Scientific, and Technical Services' } },
-        { id:`demo3_${Date.now()}`, name:'New Artisan Coffee Roastery', apiSource:'yelp', source:'Demo Data', location:`${state.region}, CA`, triggers:['new_business'], consentStatus:'business_public_record', behaviors:['new_opening'], distance:Math.random()*8, capturedAt:new Date().toISOString(), contact:{email:'hello@artisancoffee.com', phone:'(714) 555-0987'}, venue:'Main Street District', categories:'Coffee, Food', rating:4.8, reviewCount:12 }
-    ].map(it => {
-        const score = calculateScore(it);
-        return { ...it, score, priority: score >= 80 ? 'High' : score >= 60 ? 'Medium' : 'Low' };
+      // Event Listeners
+      const scanBtn = $('#scanBtn');
+      if (scanBtn) addManagedEventListener(scanBtn, 'click', runScan);
+      
+      const exportBtn = $('#exportBtn');
+      if (exportBtn) addManagedEventListener(exportBtn, 'click', exportCSV);
+      
+      const scanEmpty = $('#scanEmpty');
+      if (scanEmpty) addManagedEventListener(scanEmpty, 'click', runScan);
+
+      const regionSel = $('#regionSel');
+      if (regionSel) {
+        addManagedEventListener(regionSel, 'change', (e) => { 
+          state.region = e.target.value; 
+          saveState(); 
+          render(); 
+        });
+      }
+
+      const srcSel = $('#srcSel');
+      if (srcSel) {
+        addManagedEventListener(srcSel, 'change', (e) => { 
+          state.filters.source = e.target.value; 
+          render(); 
+        });
+      }
+
+      const prioSel = $('#prioSel');
+      if (prioSel) {
+        addManagedEventListener(prioSel, 'change', (e) => { 
+          state.filters.priority = e.target.value; 
+          render(); 
+        });
+      }
+
+      const sortSel = $('#sortSel');
+      if (sortSel) {
+        addManagedEventListener(sortSel, 'change', (e) => { 
+          state.filters.sort = e.target.value; 
+          render(); 
+        });
+      }
+
+      const searchInput = $('#searchInput');
+      if (searchInput) {
+        addManagedEventListener(searchInput, 'input', (e) => { 
+          const val = e.target.value; 
+          clearTimeout(searchDebounce); 
+          searchDebounce = setTimeout(() => { 
+            state.filters.search = val; 
+            render(); 
+          }, 300);
+        });
+      }
+
+      // CSV Modal
+      const addCsvBtn = $('#addCsvBtn');
+      if (addCsvBtn) {
+        addManagedEventListener(addCsvBtn, 'click', () => { 
+          const modal = $('#settingsModal');
+          if (modal) {
+            modal.classList.remove('hidden'); 
+            modal.classList.add('flex'); 
+            modal.setAttribute('aria-hidden','false'); 
+            const csvUrl = $('#csvUrl');
+            if (csvUrl) csvUrl.focus();
+          }
+        });
+      }
+
+      const closeCSVModal = () => { 
+        const modal = $('#settingsModal');
+        if (modal) {
+          modal.classList.add('hidden'); 
+          modal.classList.remove('flex'); 
+          modal.setAttribute('aria-hidden','true'); 
+        }
+      };
+
+      const csvCancel = $('#csvCancel');
+      if (csvCancel) addManagedEventListener(csvCancel, 'click', closeCSVModal);
+
+      const modalClose = $('#modalClose');
+      if (modalClose) addManagedEventListener(modalClose, 'click', closeCSVModal);
+
+      const modalBackdrop = $('#modalBackdrop');
+      if (modalBackdrop) addManagedEventListener(modalBackdrop, 'click', closeCSVModal);
+
+      const csvSave = $('#csvSave');
+      if (csvSave) {
+        addManagedEventListener(csvSave, 'click', () => {
+          try {
+            const urlInput = $('#csvUrl');
+            const labelInput = $('#csvLabel');
+            
+            if (!urlInput || !labelInput) {
+              pushNotice('warn', 'Form elements not found');
+              return;
+            }
+            
+            const url = urlInput.value.trim(); 
+            const label = labelInput.value.trim() || 'CSV Import';
+            
+            if(!url) { 
+              pushNotice('warn', 'Please enter a CSV URL.'); 
+              return; 
+            }
+            
+            try {
+              new URL(url);
+            } catch {
+              pushNotice('warn', 'Please enter a valid URL.');
+              return;
+            }
+            
+            if(!url.includes('pub?output=csv')) { 
+              pushNotice('warn', 'Use a published CSV link (should contain "pub?output=csv").'); 
+              return; 
+            }
+            
+            CSV_SOURCES.push([url, label.slice(0, 60)]); 
+            saveState(); 
+            pushNotice('success', `Added CSV source: ${escapeHTML(label)}`);
+            closeCSVModal(); 
+            urlInput.value = ''; 
+            labelInput.value = ''; 
+            render();
+          } catch (error) {
+            console.error('Error saving CSV source:', error);
+            pushNotice('danger', 'Failed to add CSV source');
+          }
+        });
+      }
+
+      // Setup Modal
+      const setupBtn = $('#setupBtn');
+      if (setupBtn) {
+        addManagedEventListener(setupBtn, 'click', () => { 
+          const modal = $('#setupModal');
+          if (modal) {
+            modal.classList.remove('hidden'); 
+            modal.classList.add('flex'); 
+            modal.setAttribute('aria-hidden','false'); 
+          }
+        });
+      }
+
+      const closeSetupModal = () => { 
+        const modal = $('#setupModal');
+        if (modal) {
+          modal.classList.add('hidden'); 
+          modal.classList.remove('flex'); 
+          modal.setAttribute('aria-hidden','true'); 
+        }
+      };
+
+      const setupCancel = $('#setupCancel');
+      if (setupCancel) addManagedEventListener(setupCancel, 'click', closeSetupModal);
+
+      const setupClose = $('#setupClose');
+      if (setupClose) addManagedEventListener(setupClose, 'click', closeSetupModal);
+
+      const setupBackdrop = $('#setupBackdrop');
+      if (setupBackdrop) addManagedEventListener(setupBackdrop, 'click', closeSetupModal);
+
+      const refreshApiStatusBtn = $('#refreshApiStatusBtn');
+      if (refreshApiStatusBtn) {
+        addManagedEventListener(refreshApiStatusBtn, 'click', async (e) => { 
+          const btn = e.currentTarget; 
+          const originalText = btn.innerHTML;
+          btn.innerHTML = '🔄 Refreshing...'; 
+          btn.disabled = true; 
+          try {
+            await fetchConfig(); 
+            render();
+          } catch (error) {
+            console.error('Error refreshing API status:', error);
+            pushNotice('warn', 'Failed to refresh API status');
+          } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+          }
+        });
+      }
+
+      const resetAppBtn = $('#resetAppBtn');
+      if (resetAppBtn) {
+        addManagedEventListener(resetAppBtn, 'click', () => { 
+          if (confirm('Clear saved leads, settings, and CSV sources? This cannot be undone.')) { 
+            try {
+              const keys = Object.keys(localStorage);
+              keys.forEach(key => {
+                if (key.startsWith(CONFIG.STORAGE_KEY_PREFIX)) {
+                  localStorage.removeItem(key);
+                }
+              });
+              
+              CSV_SOURCES.length = 0; 
+              state.items = []; 
+              state.filters = { source:'all', priority:'all', sort:'score_desc', search:'' }; 
+              state.region = CONFIG.DEFAULT_REGION; 
+              state.lastScanTime = null;
+              state.notices = [];
+              
+              saveState(); 
+              pushNotice('success','App reset complete.'); 
+              closeSetupModal(); 
+              render(); 
+            } catch (error) {
+              console.error('Error resetting app:', error);
+              pushNotice('danger', 'Failed to reset app completely');
+            }
+          } 
+        });
+      }
+
+      // Global keyboard handlers
+      const handleKeydown = (ev) => { 
+        if (ev.key === 'Escape') { 
+          const settingsModal = $('#settingsModal');
+          const setupModal = $('#setupModal');
+          
+          if (settingsModal && !settingsModal.classList.contains('hidden')) {
+            closeCSVModal();
+          } else if (setupModal && !setupModal.classList.contains('hidden')) {
+            closeSetupModal();
+          }
+        } 
+      };
+
+      document.removeEventListener('keydown', handleKeydown);
+      addManagedEventListener(document, 'keydown', handleKeydown);
+
+      // Apply loading states
+      if(state.isScanning) { 
+        const listCards = $('.card', document.querySelector('[data-list]') || document);
+        listCards.forEach(n => n.classList.add('skeleton')); 
+      }
+
+      state.hasRendered = true;
     });
 
-    // ------- Render Functions -------
-    const renderHeader = () => {
-      const regionOptions = REGIONS.map(r => `<option ${r === state.region ? 'selected' : ''}>${r}</option>`).join('');
-      const connectedCount = API_SOURCES.filter(api => state.apiStatus[api.id]).length;
-      const totalSources = connectedCount + CSV_SOURCES.length;
-      return el(`
-        <header class="bg-white border-b border-gray-200">
-          <div class="max-w-7xl mx-auto p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div>
-              <h1 class="text-3xl font-bold text-gray-900">${CONFIG.APP_NAME}</h1>
-              <p class="text-gray-600 mt-1">Power Edition for ${CONFIG.AGENT_NAME} • ${totalSources} Sources Configured</p>
-            </div>
-            <div class="flex flex-wrap items-center gap-3">
-              <div class="flex items-center gap-2"><span class="text-gray-600 text-sm">Region</span><select id="regionSelect" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">${regionOptions}</select></div>
-              <button id="scanBtn" class="btn btn-primary ${state.isScanning ? 'loading' : ''}">${state.isScanning ? 'Scanning…' : `Scan ${state.region}`}</button>
-              <button id="exportBtn" class="btn btn-green" ${state.opportunities.length ? '' : 'disabled style="opacity:.5; cursor:not-allowed"'}>Export CSV</button>
-            </div>
-          </div>
-        </header>
-      `);
-    };
+    // =====================
+    // App Lifecycle
+    // =====================
+    window.addEventListener('online', () => {
+      pushNotice('success','Back online.');
+      if (state.hasRendered && !state.demo) {
+        fetchConfig();
+      }
+    });
     
-    const renderNotifications = () => {
-        if (!state.notifications.length) return el('<div></div>');
-        const items = state.notifications.map(n => `<div class="p-4 rounded-lg border ${{success:'bg-green-50 border-green-200 text-green-800',warn:'bg-yellow-50 border-yellow-200 text-yellow-800',danger:'bg-red-50 border-red-200 text-red-800'}[n.type]||'bg-blue-50 border-blue-200 text-blue-800'}"><div class="flex items-center justify-between"><span class="text-sm">${n.message}</span><span class="text-xs opacity-75">${n.time.toLocaleTimeString()}</span></div></div>`).join('');
-        return el(`<div class="mb-6 space-y-2">${items}</div>`);
-    };
-
-    const renderStats = () => {
-      const highPriority = state.opportunities.filter(o => o.priority === 'High').length;
-      const newBusinesses = state.opportunities.filter(o => (o.triggers||[]).some(t => ['new_business', 'new_registration', 'public_record'].includes(t)) || (o.behaviors||[]).includes('new_opening')).length;
-      const connectedCount = API_SOURCES.filter(api => state.apiStatus[api.id]).length + CSV_SOURCES.length;
-      return el(`
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
-          <div class="card p-6"><div class="flex items-center gap-3">🎯<div><p class="text-2xl font-bold">${state.opportunities.length}</p><p class="text-gray-600">Total Opportunities</p></div></div></div>
-          <div class="card p-6"><div class="flex items-center gap-3">🔥<div><p class="text-2xl font-bold">${highPriority}</p><p class="text-gray-600">High Priority</p></div></div></div>
-          <div class="card p-6"><div class="flex items-center gap-3">🆕<div><p class="text-2xl font-bold">${newBusinesses}</p><p class="text-gray-600">New Businesses</p></div></div></div>
-          <div class="card p-6"><div class="flex items-center gap-3">🗄️<div><p class="text-2xl font-bold">${connectedCount}</p><p class="text-gray-600">Sources Configured</p></div></div></div>
-        </div>
-      `);
-    };
+    window.addEventListener('offline', () => {
+      pushNotice('warn','You are offline. Demo mode will still work.');
+    });
     
-    // MODIFIED: Opportunity card now shows NAICS industry code
-    const renderOpportunityCard = (o) => {
-        const sourceIcons = { yelp: '⭐', lapermits: '🏗️', ticketmaster: '🎫', seatgeek: '🎪', eventbrite: '📅', places: '🏢', lacity: '🏛️', csv: '📄' };
-        const scoreColors = (s) => s >= 80 ? 'badge-green' : s >= 60 ? 'badge-blue' : s >= 40 ? 'badge-yellow' : 'badge-gray';
-        return `
-          <div class="border border-gray-200 rounded-lg p-6 hover:border-blue-300 transition-colors bg-white">
-            <div class="flex justify-between items-start gap-6">
-              <div class="flex-1">
-                <div class="flex items-center gap-3 mb-3 flex-wrap">
-                  <span class="text-xl">${sourceIcons[o.apiSource] || '🏢'}</span>
-                  <h3 class="text-lg font-semibold text-gray-900">${o.name}</h3>
-                  <span class="badge ${{High:'badge-red', Medium:'badge-yellow'}[o.priority]||'badge-gray'}">${o.priority}</span>
-                  <span class="badge badge-gray">${o.source}</span>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                  <div><p class="text-sm text-gray-500">Contact</p><p class="font-medium text-gray-900 truncate">${o.contact?.phone || o.contact?.email || 'N/A'}</p></div>
-                  <div><p class="text-sm text-gray-500">Distance</p><p class="font-medium text-gray-900">${(o.distance??0).toFixed(1)} mi</p></div>
-                  ${o.extra?.naics ? `<div><p class="text-sm text-gray-500">Industry</p><p class="font-medium text-gray-900 truncate" title="${o.extra.naics}">${o.extra.naics}</p></div>` : `<div><p class="text-sm text-gray-500">Captured</p><p class="font-medium text-gray-900">${new Date(o.capturedAt).toLocaleDateString()}</p></div>`}
-                </div>
-                <div class="flex flex-wrap gap-3">
-                  ${o.contact?.email ? `<a class="btn btn-primary" href="mailto:${o.contact.email}?subject=Intro — ${CONFIG.AGENT_NAME}, New York Life&body=${encodeURIComponent(outreachTemplate())}">Email</a>` : ''}
-                  ${o.contact?.phone ? `<a class="btn btn-green" href="tel:${o.contact.phone}">Call</a>` : o.url || o.contact?.website ? `<a class="btn btn-green" href="${o.url || o.contact.website}" target="_blank" rel="noopener">View Details</a>` : ''}
-                  <a target="_blank" rel="noreferrer" class="btn btn-gray" href="https://www.google.com/search?q=${encodeURIComponent(o.name + ' ' + o.location)}">Research</a>
-                </div>
-              </div>
-              <div class="text-center"><div class="text-2xl font-bold px-4 py-2 rounded-lg border ${scoreColors(o.score)}">${o.score}</div><p class="text-xs text-gray-500 mt-1">AI Score</p></div>
-            </div>
-          </div>`;
-    };
+    window.addEventListener('storage', (e) => { 
+      if (e.key && e.key.startsWith(CONFIG.STORAGE_KEY_PREFIX)) {
+        if (e.key === getStorageKey('csv_sources')) { 
+          CSV_SOURCES = safeParse('csv_sources', []); 
+          render(); 
+        }
+      }
+    });
 
-    // MODIFIED: Filter now includes new sources
-    const renderDashboard = () => {
-        const f = state.filters;
-        let filteredOpportunities = state.opportunities
-            .filter(o => (f.source === 'all' || o.apiSource === f.source) && (f.priority === 'all' || o.priority === f.priority))
-            .sort((a, b) => {
-                if (f.sortBy === 'score_desc') return b.score - a.score; if (f.sortBy === 'name_asc') return a.name.localeCompare(b.name);
-                if (f.sortBy === 'date_desc') return new Date(b.capturedAt) - new Date(a.capturedAt); return 0;
-            });
-            
-        const items = filteredOpportunities.map(renderOpportunityCard).join('');
-        const allSources = [{id: 'all', label: 'All Sources'}, ...API_SOURCES, ...CSV_SOURCES.map(([url, label]) => ({id:'csv', label}))];
-        const sourceOptions = [...new Map(allSources.map(item => [item.label, item])).values()].map(s => `<option value="${s.id}" ${f.source === s.id ? 'selected' : ''}>${s.label}</option>`).join('');
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && state.hasRendered && !state.demo) {
+        const lastScan = state.lastScanTime ? new Date(state.lastScanTime) : null;
+        const timeSinceLastScan = lastScan ? (Date.now() - lastScan.getTime()) / (1000 * 60) : Infinity;
         
-        const emptyState = `<div class="text-center py-12 card"><div class="text-5xl text-gray-400 mb-4">🎯</div><h3 class="text-lg font-semibold text-gray-900 mb-2">${state.opportunities.length > 0 ? 'No Matching Opportunities' : 'No Opportunities Yet'}</h3><p class="text-gray-600 mb-4">${state.opportunities.length > 0 ? 'Adjust your filters or perform a new scan.' : 'Click "Scan" to find opportunities in your selected region.'}</p>${state.opportunities.length === 0 ? `<button id="emptyScan" class="btn btn-primary">Find Opportunities</button>` : ''}</div>`;
-        return el(`<section> <div class="card p-4 mb-6"><div class="flex flex-wrap items-center gap-4"><div class="flex-grow font-semibold text-gray-700">Showing ${filteredOpportunities.length} of ${state.opportunities.length}</div><div class="flex items-center gap-2"><label class="text-sm">Source</label><select data-filter="source" class="border border-gray-300 rounded-md px-2 py-1 text-sm">${sourceOptions}</select></div><div class="flex items-center gap-2"><label class="text-sm">Priority</label><select data-filter="priority" class="border border-gray-300 rounded-md px-2 py-1 text-sm"><option value="all">All</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option></select></div><div class="flex items-center gap-2"><label class="text-sm">Sort By</label><select data-filter="sortBy" class="border border-gray-300 rounded-md px-2 py-1 text-sm"><option value="score_desc">Score</option><option value="name_asc">Name</option><option value="date_desc">Date</option></select></div></div></div> ${items.length > 0 ? `<div class="space-y-4">${items}</div>` : emptyState}</section>`);
-    };
+        if (timeSinceLastScan > 30) {
+          fetchConfig();
+        }
+      }
+    });
 
-    // MODIFIED: Setup page includes new API
-    const renderSetup = () => {
-      const s = state.apiStatus;
-      const badge = (ok) => ok ? '<span class="badge badge-green">Connected</span>' : '<span class="badge badge-red">Not Connected</span>';
-      const apiCards = API_SOURCES.map(api => `<div class="border border-gray-200 rounded-lg p-6"><div class="flex items-center justify-between mb-2"><h3 class="font-semibold">${api.label}</h3>${badge(!!s[api.id])}</div><p class="text-sm text-gray-600">${api.id === 'lapermits' || api.id === 'lacity' ? 'No key needed' : `Env: \`${{eventbrite:'EVENTBRITE_TOKEN',places:'GOOGLE_PLACES_KEY',ticketmaster:'TICKETMASTER_API_KEY',seatgeek:'SEATGEEK_CLIENT_ID',yelp:'YELP_API_KEY'}[api.id]}\``}</p></div>`).join('');
-      return el(`
-        <section>
-          <h2 class="text-xl font-semibold text-gray-900 mb-4">API & Data Source Configuration</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">${apiCards}</div>
-          <div class="card p-6"><h3 class="font-semibold mb-2">CSV Sources (${CSV_SOURCES.length} configured)</h3>${CSV_SOURCES.length ? `<ul class="list-disc list-inside text-sm text-gray-600">${CSV_SOURCES.map(([url, label]) => `<li>${label}</li>`).join('')}</ul>` : `<p class="text-sm text-gray-600">No CSV sources configured. Edit <code>index.html</code> to add published Google Sheet links.</p>`}</div>
-        </section>`);
-    };
+    // =====================
+    // Performance Monitoring
+    // =====================
+    if (window.performance && window.performance.mark) {
+      window.performance.mark('app-start');
+    }
 
-    const outreachTemplate = () => `Hi there,\n\nI'm ${CONFIG.AGENT_NAME}, a local New York Life agent in ${state.region}.\n\nI help families and businesses with protection, retirement income, and long-term planning. Would you be open to a brief call next week to see if I can be a resource for you?\n\n— ${CONFIG.AGENT_NAME}\n${CONFIG.AGENT_LICENSE}\n${CONFIG.AGENT_EMAIL}`;
-    const renderTemplates = () => el(`<section><div class="flex items-center justify-between"><h2 class="text-xl font-semibold">Email Template</h2><button id="copyTpl" class="btn btn-gray">Copy</button></div><pre class="whitespace-pre-wrap text-sm bg-gray-50 p-4 mt-3 rounded border">${outreachTemplate()}</pre></section>`);
-    
-    const renderTabs = () => {
-      const tabBtn = (id, label) => `<button data-tab="${id}" class="py-4 px-6 border-b-2 font-medium text-sm ${state.activeTab===id?'border-blue-600 text-blue-600':'border-transparent text-gray-600 hover:text-gray-800'}">${label}</button>`;
-      const wrap = el(`<div class="card"><div class="border-b flex">${tabBtn('dashboard','Dashboard')}${tabBtn('setup','API Setup')}${tabBtn('templates','Templates')}</div><div class="p-6" id="tabPanel"></div></div>`);
-      const panel = wrap.querySelector('#tabPanel');
-      if (state.activeTab === 'dashboard') panel.appendChild(renderDashboard());
-      if (state.activeTab === 'setup') panel.appendChild(renderSetup());
-      if (state.activeTab === 'templates') panel.appendChild(renderTemplates());
-      return wrap;
-    };
+    // =====================
+    // Initialize Application
+    // =====================
+    async function initializeApp() {
+      try {
+        console.log('NYL Lead Intelligence Platform v2.5.0 initializing...');
+        
+        if (window.performance && window.performance.mark) {
+          window.performance.mark('app-init-start');
+        }
+        
+        render();
+        await fetchConfig();
+        
+        console.log('Configuration loaded, ready for scanning.');
+        render();
+        
+        if (window.performance && window.performance.mark) {
+          window.performance.mark('app-init-end');
+          try {
+            window.performance.measure('app-init', 'app-init-start', 'app-init-end');
+          } catch (e) {
+            // Ignore performance measurement errors
+          }
+        }
+        
+        // Auto-scan in demo mode for better UX
+        if (state.demo && state.items.length === 0) {
+          setTimeout(() => {
+            if (state.items.length === 0 && !state.isScanning) {
+              runScan();
+            }
+          }, 1000);
+        }
+        
+      } catch (error) {
+        console.error('Failed to initialize app:', error);
+        displayError(error);
+      }
+    }
 
-    const render = () => {
-      const app = document.getElementById('app');
-      app.innerHTML = '';
-      app.appendChild(renderHeader());
-      const main = el('<main class="max-w-7xl mx-auto p-6"></main>');
-      main.appendChild(renderNotifications());
-      main.appendChild(renderStats());
-      main.appendChild(renderTabs());
-      app.appendChild(main);
-      app.appendChild(el(`<footer class="max-w-7xl mx-auto p-6 text-xs text-center text-gray-500"><p>© ${new Date().getFullYear()} ${CONFIG.APP_NAME}. For agent use only.</p></footer>`));
+    // Start the application
+    initializeApp();
 
-      document.getElementById('regionSelect').onchange = (e) => { state.region = e.target.value; saveState(); };
-      document.getElementById('scanBtn').onclick = runScan;
-      const emptyScanBtn = document.getElementById('emptyScan'); if (emptyScanBtn) emptyScanBtn.onclick = runScan;
-      document.getElementById('exportBtn').onclick = exportCSV;
-      document.querySelectorAll('[data-tab]').forEach(btn => btn.onclick = () => { state.activeTab = btn.dataset.tab; render(); });
-      document.querySelectorAll('[data-filter]').forEach(select => {
-          select.onchange = (e) => { state.filters[e.target.dataset.filter] = e.target.value; render(); };
-          state.filters[select.dataset.filter] = select.value;
-      });
-      const copyBtn = document.getElementById('copyTpl');
-      if (copyBtn) copyBtn.onclick = () => navigator.clipboard.writeText(outreachTemplate()).then(() => notify('success', 'Template copied.'));
-    };
-
-    // ------- Init -------
-    render();
-    fetchConfig();
   </script>
 </body>
 </html>
