@@ -1,10 +1,10 @@
 [build]
-publish = "."                      # serves index.html from repo root
+publish = "."
 
 [functions]
-directory = "netlify/functions"    # <— point to the real functions folder
+directory = "netlify/functions"
 node_bundler = "esbuild"
-included_files = ["netlify/functions/_shared/**"]  # <— bundle shared helpers
+included_files = ["netlify/functions/_shared/**"]
 
 [dev]
 port = 8888
