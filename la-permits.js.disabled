@@ -2,8 +2,7 @@ import { ok } from './_shared/respond.js';
 import { nowISO } from './_shared/geo.js';
 
 const DATASET = process.env.LA_PERMITS_DATASET || 'nbyu-2pyy';
-const ROOT = 'https://data.lacity.org/resource/';
-
+const ROOT = `https://${process.env.LA_SOCRATA_DOMAIN}/resource/`;
 export async function handler() {
   try {
     const url = new URL(`${ROOT}${DATASET}.json`);
