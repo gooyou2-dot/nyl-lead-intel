@@ -356,7 +356,7 @@
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-        const r = await fetch('/.netlify/functions/config', {
+        const r = await fetch('/.netlify/functions/self-test', {
           signal: controller.signal,
           headers: { 'Cache-Control': 'no-cache' }
         });
