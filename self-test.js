@@ -1,73 +1,53 @@
-// /netlify/functions/self-test.js
-import { ok, fail } from './_shared/respond.js';
+import { json } from './_shared/respond.js';
 
-const mask = (v) => (v ? `${v.slice(0,2)}…${v.slice(-4)}` : null);
+function makeBase(req) {
+  // Prefer Netlify runtime env vars
+  const viaEnv = process.env.URL || process.env.DEPLOY_URL || process.env.DEPLOY_PRIME_URL;
+  if (viaEnv) return viaEnv.replace(/\/$/, '');
 
-// Optional: super-lightweight test calls (safe + tiny)
-async function pingTicketmaster(key) {
-  if (!key) return { ok: false, reason: 'missing_key' };
-  const u = new URL('https://app.ticketmaster.com/discovery/v2/events.json');
-  u.searchParams.set('size', '1');
-  u.searchParams.set('countryCode', 'US');
-  u.searchParams.set('apikey', key);
-  const r = await fetch(u);
-  return r.ok ? { ok: true } : { ok: false, status: r.status };
+  // Fall back to the request host (production) or local dev
+  const host = req?.headers?.host;
+  if (host) {
+    const proto = host.includes('localhost') ? 'http' : 'https';
+    return `${proto}://${host}`;
+  }
+  return 'http://localhost:8888'; // Netlify CLI default
 }
 
-async function pingYelp(key) {
-  if (!key) return { ok: false, reason: 'missing_key' };
-  const u = new URL('https://api.yelp.com/v3/businesses/search');
-  u.searchParams.set('latitude', '33.6603');   // OC center-ish
-  u.searchParams.set('longitude', '-117.9992');
-  u.searchParams.set('limit', '1');
-  const r = await fetch(u, { headers: { Authorization: `Bearer ${key}` } });
-  return r.ok ? { ok: true } : { ok: false, status: r.status };
-}
-
-async function pingPlaces(key) {
-  if (!key) return { ok: false, reason: 'missing_key' };
-  const u = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
-  u.searchParams.set('query', 'coffee');
-  u.searchParams.set('location', '33.6603,-117.9992');
-  u.searchParams.set('radius', '1000');
-  u.searchParams.set('key', key);
-  const r = await fetch(u);
-  return r.ok ? { ok: true } : { ok: false, status: r.status };
+async function call(base, path) {
+  try {
+    const r = await fetch(new URL(path, base));
+    if (!r.ok) {
+      const text = await r.text().catch(() => '');
+      return { ok: false, status: r.status, text };
+    }
+    const body = await r.json().catch(() => ({}));
+    return {
+      ok: body.ok ?? true,
+      count: Array.isArray(body.items) ? body.items.length : (body.items ? 1 : 0),
+      body
+    };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
 }
 
 export async function handler(req) {
-  try {
-    const env = {
-      TICKETMASTER_API_KEY: !!process.env.TICKETMASTER_API_KEY,
-      YELP_API_KEY: !!process.env.YELP_API_KEY,
-      GOOGLE_PLACES_KEY: !!process.env.GOOGLE_PLACES_KEY,
-      EVENTBRITE_TOKEN: !!process.env.EVENTBRITE_TOKEN,
-      SEATGEEK_CLIENT_ID: !!process.env.SEATGEEK_CLIENT_ID,
-      SENDGRID_API_KEY: !!process.env.SENDGRID_API_KEY,
-    };
+  const base = makeBase(req);
+  const region = 'Orange County';
+  const results = {};
 
-    // Optional live pings (fast + 1 item only)
-    const [tm, yelp, places] = await Promise.all([
-      pingTicketmaster(process.env.TICKETMASTER_API_KEY),
-      pingYelp(process.env.YELP_API_KEY),
-      pingPlaces(process.env.GOOGLE_PLACES_KEY),
-    ]);
+  results.config = await call(base, '/.netlify/functions/config');
 
-    // Never return raw secrets; include masked preview for debugging
-    const masked = {
-      TICKETMASTER_API_KEY: mask(process.env.TICKETMASTER_API_KEY || ''),
-      YELP_API_KEY: mask(process.env.YELP_API_KEY || ''),
-      GOOGLE_PLACES_KEY: mask(process.env.GOOGLE_PLACES_KEY || ''),
-    };
+  // Only call endpoints you actually have in /netlify/functions
+  results.places = await call(base, `/.netlify/functions/places-search?region=${encodeURIComponent(region)}`);
+  results.yelp   = await call(base, `/.netlify/functions/yelp?region=${encodeURIComponent(region)}`);
+  results.ticketmaster = await call(base, `/.netlify/functions/ticketmaster?region=${encodeURIComponent(region)}`);
+  results.eventbrite   = await call(base, `/.netlify/functions/eventbrite-search?region=${encodeURIComponent(region)}`);
 
-    return ok({
-      env,                     // booleans: present/missing
-      maskedKeys: masked,      // safe masked view
-      pings: { ticketmaster: tm, yelp, places }, // live connectivity status
-      note: 'Keys are masked; only presence and ping results are shown.',
-    });
-  } catch (e) {
-    console.error('self-test error', e);
-    return fail(500, 'Self test failed');
-  }
+  // If/when you add these back, uncomment:
+  // results.permits = await call(base, '/.netlify/functions/la-permits');
+  // results.lacity  = await call(base, '/.netlify/functions/lacity-businesses');
+
+  return json({ ok: true, base, results }, { headers: { 'cache-control': 'no-store' } });
 }
