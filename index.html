@@ -110,13 +110,14 @@
     const REGIONS = ['Orange County','Los Angeles County','San Diego County','Santa Clara County','Sacramento County','Riverside County'];
 
     const API_SOURCES = [
-      { id:'places',       label:'Google Places',        endpoint:'places-search',        needsKey:true,  envVar:'GOOGLE_PLACES_KEY' },
-      { id:'eventbrite',   label:'Eventbrite',           endpoint:'eventbrite-search',    needsKey:true,  envVar:'EVENTBRITE_TOKEN' },
-      { id:'ticketmaster', label:'Ticketmaster',         endpoint:'ticketmaster',         needsKey:true,  envVar:'TICKETMASTER_API_KEY' },
-      { id:'seatgeek',     label:'SeatGeek',             endpoint:'seatgeek',             needsKey:true,  envVar:'SEATGEEK_CLIENT_ID' },
-      { id:'yelp',         label:'Yelp Hot & New',       endpoint:'yelp',                 needsKey:true,  envVar:'YELP_API_KEY' },
-      { id:'lapermits',    label:'LA City Permits',      endpoint:'la-permits',           needsKey:false, envVar:null },
-      { id:'lacity',       label:'LA City Businesses',   endpoint:'lacity-businesses',    needsKey:false, envVar:null },
+      { id:'ai-scout',     label:'🤖 AI Scout',          endpoint:'ai-scout',           needsKey:true,  envVar:'OPENAI_API_KEY' },
+      { id:'places',       label:'Google Places',       endpoint:'places-search',      needsKey:true,  envVar:'GOOGLE_PLACES_KEY' },
+      { id:'eventbrite',   label:'Eventbrite',          endpoint:'eventbrite-search',  needsKey:true,  envVar:'EVENTBRITE_TOKEN' },
+      { id:'ticketmaster', label:'Ticketmaster',        endpoint:'ticketmaster',       needsKey:true,  envVar:'TICKETMASTER_API_KEY' },
+      { id:'seatgeek',     label:'SeatGeek',            endpoint:'seatgeek',           needsKey:true,  envVar:'SEATGEEK_CLIENT_ID' },
+      { id:'yelp',         label:'Yelp Hot & New',      endpoint:'yelp',               needsKey:true,  envVar:'YELP_API_KEY' },
+      { id:'lapermits',    label:'LA City Permits',     endpoint:'la-permits',         needsKey:false, envVar:null },
+      { id:'lacity',       label:'LA City Businesses',  endpoint:'lacity-businesses',  needsKey:false, envVar:null },
     ];
 
     // =====================
